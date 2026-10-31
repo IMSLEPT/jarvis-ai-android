@@ -1,0 +1,17 @@
+name: Mantieni viva la chiave di firma
+
+# La cache di GitHub viene eliminata dopo 7 giorni senza accessi: questo job settimanale la "tocca"
+# così gli aggiornamenti dell'app restano installabili sopra la versione precedente.
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+jobs:
+  touch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/cache/restore@v4
+        with:
+          path: jarvis-ci.jks
+          key: jarvis-keystore-v1

@@ -23,6 +23,7 @@ import it.jarvis.assistant.voice.WakeWord
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /** Contenitore delle dipendenze (iniezione manuale). */
 class AppGraph(app: Application) {
@@ -46,7 +47,7 @@ class AppGraph(app: Application) {
 
     init {
         core.agent = Agent(settings, llm, controller, memory) { llm }
-        providers.onChanged = { backup.autoWrite() }
+        providers.onChanged = { appScope.launch(Dispatchers.IO) { backup.autoWrite() } }
     }
 }
 

@@ -95,7 +95,12 @@ class JarvisCore(
 
     private fun startMic(): Boolean {
         consumer?.cancel()
-        consumer = scope.launch { for (f in frames) process(f) }
+        consumer = scope.launch {
+            for (f in frames) {
+                try { process(f) } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                catch (e: Throwable) { DiagLog.e(tag, "Errore nel ciclo audio", Exception(e)) }
+            }
+        }
         val ok = mic.start { f ->
             var s = 0f; for (x in f) s += x * x
             level.value = (sqrt(s / f.size) * 8f).coerceIn(0f, 1f)

@@ -62,6 +62,7 @@ class WakeWord(private val ctx: Context, private val models: ModelManager, priva
     }
 
     /** @return la parola rilevata o null. */
+    @Synchronized
     fun accept(frame: FloatArray): String? {
         val k = kws ?: return null
         val s = stream ?: return null
@@ -80,6 +81,7 @@ class WakeWord(private val ctx: Context, private val models: ModelManager, priva
         return hit
     }
 
+    @Synchronized
     fun reset() { val k = kws; val s = stream; if (k != null && s != null) k.reset(s) }
 
     @Synchronized
