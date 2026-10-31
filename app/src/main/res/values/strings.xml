@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Jarvis AI</string>
+    <string name="accessibility_label">Jarvis AI</string>
+    <string name="accessibility_description">Permette a Jarvis di leggere lo schermo e di toccare, scrivere e scorrere nelle altre app solo quando gli chiedi di eseguire un compito. Nessun dato viene letto in modo continuativo: l\'osservazione dello schermo avviene solo durante un\'attività richiesta da te.</string>
+</resources>

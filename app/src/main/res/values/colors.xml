@@ -1,0 +1,5 @@
+<resources>
+    <color name="jarvis_bg">#050B1C</color>
+    <color name="jarvis_icon_bg">#07142F</color>
+    <color name="jarvis_icon_fg">#2EC8FF</color>
+</resources>
