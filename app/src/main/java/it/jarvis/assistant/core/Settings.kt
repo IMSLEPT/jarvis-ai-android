@@ -22,7 +22,7 @@ class Settings(ctx: Context) {
     var themeMode: String get() = str("theme", "dark"); set(v) = put("theme", v)           // dark | light | system
     var wakeEnabled: Boolean get() = p.getBoolean("wake", true); set(v) = put("wake", v)
     /** 0.10 = molto sensibile … 0.45 = poco sensibile */
-    var wakeThreshold: Float get() = p.getFloat("wake_thr", 0.25f); set(v) = put("wake_thr", v)
+    var wakeThreshold: Float get() = p.getFloat("wake_thr", 0.2f); set(v) = put("wake_thr", v)
     var wakeScore: Float get() = p.getFloat("wake_score", 1.5f); set(v) = put("wake_score", v)
     var speakerVerify: Boolean get() = p.getBoolean("spk_on", false); set(v) = put("spk_on", v)
     var speakerThreshold: Float get() = p.getFloat("spk_thr", 0.55f); set(v) = put("spk_thr", v)

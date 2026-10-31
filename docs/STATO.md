@@ -9,7 +9,7 @@ Data aggiornamento: build 0.1.x (31/10/2026). *Nessuna funzione è stata provata
 | Sicurezza | Chiavi API cifrate (Keystore AES-GCM) | I | |
 | Backup | Cifratura/decifratura backup (PBKDF2 + AES-256-GCM), passphrase errata, file non valido | C | `BackupCryptoTest` |
 | Backup | Esporta/importa/automatico via selettore file Android | I | SAF non testato su dispositivo |
-| Voce | Wake word «Hey Jarvis» (sherpa-onnx KWS, open vocabulary) | I | Modello addestrato su inglese; accuratezza con pronuncia italiana ignota; soglia regolabile |
+| Voce | Wake word «Hey Jarvis» (sherpa-onnx KWS, open vocabulary) + avvio manuale toccando la sfera | I | Verifica su voci sintetiche (vedi `docs/VALIDAZIONE.md`): ottima con pronuncia inglese, scarsa con voce sintetica italiana → la tua pronuncia va provata; il tocco sulla sfera funziona sempre |
 | Voce | VAD fine comando, nessun ascolto infinito | I | Timeout 7 s al primo ascolto, finestra di conversazione configurabile |
 | Voce | STT italiano offline (Parakeet TDT 0.6B v3 int8) | I | Nomi file modello cercati dinamicamente; latenza su Pixel da misurare |
 | Voce | TTS italiano offline (Piper, 4 voci) | I | Qualità/naturalezza da giudicare all'ascolto |

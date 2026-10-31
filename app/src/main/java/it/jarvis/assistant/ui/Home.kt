@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -89,8 +90,13 @@ fun HomeScreen(onMenu: () -> Unit, go: (String) -> Unit) {
                 color = MaterialTheme.colorScheme.primary)
             IconButton(onClick = onMenu) { Icon(Icons.Default.Menu, contentDescription = "Menu") }
         }
-        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { JarvisOrb(state, level, 220.dp) }
-        Text(stateLabel(state), Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontSize = 17.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onBackground)
+        Box(
+            Modifier.fillMaxWidth().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                if (on) g.core.listenNow() else perms.launch(arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS))
+            },
+            contentAlignment = Alignment.Center
+        ) { JarvisOrb(state, level, 220.dp) }
+        Text(if (state == JState.WAITING) "In attesa di «Hey Jarvis» — o tocca la sfera" else stateLabel(state), Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontSize = 17.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onBackground)
         if (status.isNotBlank()) Text(status, Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (error != null) Text(error!!, Modifier.fillMaxWidth().padding(top = 4.dp), textAlign = TextAlign.Center, fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
 

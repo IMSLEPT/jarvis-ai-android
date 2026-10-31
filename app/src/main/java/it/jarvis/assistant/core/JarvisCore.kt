@@ -163,6 +163,9 @@ class JarvisCore(
         onWake()
     }
 
+    /** Avvio manuale dell'ascolto (tocco sulla sfera / notifica): non richiede la parola di attivazione. */
+    fun listenNow() { if (mic.isRunning) onWake() }
+
     private fun onWake() {
         vibrate()
         tts.stop() // barge-in: interrompe la voce
