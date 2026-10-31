@@ -75,9 +75,33 @@ jobs:
           fi
 
       - name: Build APK release
+        id: build
+        continue-on-error: true
         env:
           JARVIS_VERSION_CODE: ${{ github.run_number }}
-        run: gradle --no-daemon :app:assembleRelease :app:testDebugUnitTest
+        run: |
+          set -o pipefail
+          gradle --no-daemon --stacktrace :app:assembleRelease :app:testDebugUnitTest 2>&1 | tee build.log
+
+      - name: Pubblica estratto del log sul branch ci-logs
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/logs && cd /tmp/logs && git init -q && git checkout -q -b ci-logs
+          cp "$GITHUB_WORKSPACE/build.log" full.log 2>/dev/null || echo "nessun log" > full.log
+          grep -E "^e: |^w: .*(Unresolved|deprecat)|FAILED|What went wrong|Execution failed|Could not|error:|Caused by|Tests? .*(failed|FAILED)" full.log | head -300 > errors.txt || true
+          tail -120 full.log > tail.txt
+          rm full.log
+          echo "run ${{ github.run_number }} esito: ${{ steps.build.outcome }}" > status.txt
+          git config user.email ci@example.com && git config user.name ci
+          git add -A && git commit -q -m "log build ${{ github.run_number }}"
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git push -q -f origin ci-logs
+
+      - name: Esito build
+        if: steps.build.outcome != 'success'
+        run: exit 1
 
       - name: Rinomina APK
         run: |
