@@ -1,9 +1,7 @@
 package it.jarvis.assistant.core
 
 import android.content.Context
-import android.os.Build
 import android.os.VibrationEffect
-import android.os.Vibrator
 import android.os.VibratorManager
 import it.jarvis.assistant.agent.Agent
 import it.jarvis.assistant.agent.AgentIO
@@ -323,8 +321,7 @@ class JarvisCore(
 
     private fun vibrate() {
         try {
-            val v = if (Build.VERSION.SDK_INT >= 31) (ctx.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
-            else @Suppress("DEPRECATION") ctx.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            val v = (ctx.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
             v.vibrate(VibrationEffect.createOneShot(40, VibrationEffect.DEFAULT_AMPLITUDE))
         } catch (_: Exception) {}
     }

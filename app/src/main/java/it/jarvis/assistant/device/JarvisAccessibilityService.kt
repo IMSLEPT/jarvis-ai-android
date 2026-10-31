@@ -70,8 +70,8 @@ class JarvisAccessibilityService : AccessibilityService() {
     suspend fun screenshotJpegB64(maxSide: Int = 1024): String? = suspendCancellableCoroutine { cont ->
         if (Build.VERSION.SDK_INT < 30) { cont.resume(null); return@suspendCancellableCoroutine }
         try {
-            takeScreenshot(Display.DEFAULT_DISPLAY, mainExecutor, object : TakeScreenshotCallback {
-                override fun onSuccess(result: ScreenshotResult) {
+            takeScreenshot(Display.DEFAULT_DISPLAY, mainExecutor, object : AccessibilityService.TakeScreenshotCallback {
+                override fun onSuccess(result: AccessibilityService.ScreenshotResult) {
                     try {
                         val hw = Bitmap.wrapHardwareBuffer(result.hardwareBuffer, result.colorSpace)
                         val bmp = hw?.copy(Bitmap.Config.ARGB_8888, false)
