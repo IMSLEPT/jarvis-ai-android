@@ -4,12 +4,12 @@
 
 Home ridisegnata, icona fornita da Alessandro, compositore chat sopra la tastiera, guida permessi aggiornata e assistente Android selezionabile. Il pannello vocale compare in basso nelle altre app scegliendo Jarvis come assistente predefinito, oppure concedendo «Mostra sopra altre app». Il caricamento dei modelli avviene fuori dal thread UI.
 
-«Hey Jarvis» richiede modelli KWS/VAD/STT scaricati, permesso microfono e ascolto avviato esplicitamente dalla Home. Il servizio usa una notifica e un wake lock: il consumo può essere superiore a Gemini e non è equivalente al suo hotword hardware. Dopo un arresto forzato o un riavvio, riattivare dalla Home. Nessun permesso viene concesso automaticamente.
+«Hey Jarvis» richiede VAD/STT scaricati (Hey Jarvis è incluso), permesso microfono e ascolto avviato esplicitamente dalla Home. Il servizio mantiene una notifica e un wake lock, ricorda l’attivazione e richiede il riavvio al sistema quando possibile: il consumo può essere superiore a Gemini e non è equivalente al suo hotword hardware. Dopo un arresto forzato riattivare dalla Home; con Jarvis come assistente predefinito il servizio di sistema prova a riprendere l’ascolto già autorizzato. Nessun permesso viene concesso automaticamente.
 
 
-Assistente personale autonomo per Android, pensato per **Google Pixel 9 Pro XL (Android 17)**: ti ascolta con «Hey Jarvis», capisce l'italiano, parla con voce italiana naturale e controlla altre app (WhatsApp, Google Foto, Booking, ChatGPT e le tue) leggendo lo schermo e toccando/scrivendo tramite il servizio di accessibilità.
+Assistente personale autonomo per Android, pensato per **Google Pixel 9 Pro XL (Android 17)**: ti ascolta con «Hey Jarvis» tramite un rilevatore dedicato integrato, capisce l'italiano, parla con voce italiana naturale e controlla altre app (WhatsApp, Google Foto, Booking, ChatGPT e le tue) leggendo lo schermo e toccando/scrivendo tramite il servizio di accessibilità.
 
-Tutti i componenti sono **open source e gratuiti**; nessun abbonamento obbligatorio. Nessuna chiave API è nel codice.
+Tutti i componenti sono **open source e gratuiti**; nessun abbonamento obbligatorio. Nessuna chiave API è nel codice. Il modello openWakeWord integrato è concesso per uso non commerciale (CC BY-NC-SA 4.0): vedi LICENSE-openWakeWord.txt.
 
 > ⚠️ **Stato onesto**: l’APK compila, i test unitari (sicurezza, cifratura backup, risposte scritte) passano in CI e 4 test UI passano su emulatore Android 15, ma **nessuna funzione è ancora stata provata su un telefono reale**. Leggi `docs/STATO.md` per lo stato di ogni funzione e `docs/TEST_PLAN.md` per i test da eseguire.
 
@@ -32,7 +32,7 @@ Tutti i componenti sono **open source e gratuiti**; nessun abbonamento obbligato
 | Pacchetto | Ruolo |
 |---|---|
 | `ui` | Compose: Home con chat e nuova icona, menu e schermate (cronologia, memoria, voce, modelli AI/backup, permessi, app, impostazioni, diagnostica), tema scuro/chiaro |
-| `voice` | Mic (AEC/NS), wake word (sherpa-onnx KWS), VAD Silero, STT Parakeet TDT 0.6B v3 (it), TTS Piper (it), verifica parlante CAM++ |
+| `voice` | Mic (AEC/NS), wake word (openWakeWord/LiteRT), VAD Silero, STT Parakeet TDT 0.6B v3 (it), TTS Piper (it), verifica parlante CAM++ |
 | `core` | `JarvisCore` (stati, barge-in, conversazione a finestra limitata, stop immediato), `Settings` |
 | `ai` | `LlmClient` (provider compatibili OpenAI con catena di fallback), `ProviderStore`, `BackupZone` |
 | `agent` | Ciclo agente (osserva→decidi→agisci→verifica→recupera), `Safety` (conferme, blocchi) |
@@ -57,3 +57,10 @@ La build avviene su GitHub Actions (`.github/workflows/build-apk.yml`): JDK 17, 
 
 ## Licenze dei modelli
 Parakeet TDT 0.6B v3 (CC-BY-4.0), Silero VAD (MIT), 3D-Speaker CAM++ (Apache-2.0), KWS zipformer (Apache-2.0), voci Piper (MIT + licenza del dataset di ciascuna voce), Qwen3.8-27B (Apache-2.0, via provider).
+
+### Correzioni voce e WhatsApp (1 novembre 2026)
+- Sostituito Zipformer KWS con openWakeWord Hey Jarvis integrato, locale; score e sensibilità in Voce e modelli.
+- Sintesi Piper senza generateWithCallback JNI. Anteprima con esito e interruzione, indipendente dall’interruttore della voce normale.
+- Campo messaggio individuato nella finestra applicazione, escludendo tastiera e pannello. Scrittura verificata rileggendo il testo; nessun successo dichiarato su semplice ACTION_SET_TEXT.
+- WhatsApp: bozza via contatto reale o numero, rubrica facoltativa, scelta esplicita per contatti ambigui. Accessibilità resta necessaria per inviare/interagire nello schermo.
+- Test nativi scaricano modelli reali nell’emulatore. La chat esterna di test non è WhatsApp: non prova la compatibilità di ogni versione dell’app WhatsApp.

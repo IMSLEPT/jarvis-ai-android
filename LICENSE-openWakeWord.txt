@@ -1,6 +1,7 @@
 Hey Jarvis wake detection: openWakeWord by David Scripka
 https://github.com/dscripka/openWakeWord
-Feature extractors and inference reference code: Apache License 2.0.
+Inference reference code: Apache License 2.0.
+Bundled upstream pretrained models (including feature extractors): see upstream CC BY-NC-SA 4.0 licensing statement.
 Pretrained wake-word model hey_jarvis_v0.1: Creative Commons Attribution-NonCommercial-ShareAlike 4.0.
 https://creativecommons.org/licenses/by-nc-sa/4.0/
 This personal-use application bundles the upstream v0.5.1 model without retraining.

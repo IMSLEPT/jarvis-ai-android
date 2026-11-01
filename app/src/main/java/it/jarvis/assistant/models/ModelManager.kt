@@ -96,6 +96,8 @@ class ModelManager(private val ctx: Context, private val scope: CoroutineScope) 
     val states: StateFlow<Map<String, ModelState>> = _states
     private val jobs = mutableMapOf<String, Job>()
 
+    private val bundledWake by lazy { ctx.assets.list("wake")?.toSet()?.containsAll(setOf("melspectrogram.tflite", "embedding_model.tflite", "hey_jarvis_v0.1.tflite")) == true }
+
     init { refresh() }
 
     fun refresh() {
@@ -104,7 +106,6 @@ class ModelManager(private val ctx: Context, private val scope: CoroutineScope) 
 
     private fun marker(s: ModelSpec) = File(root, s.localName + ".ok")
     fun path(s: ModelSpec): File = File(root, s.localName)
-    private val bundledWake by lazy { ctx.assets.list("wake")?.toSet()?.containsAll(setOf("melspectrogram.tflite", "embedding_model.tflite", "hey_jarvis_v0.1.tflite")) == true }
     fun isInstalled(s: ModelSpec) = if (s.bundled) bundledWake else marker(s).exists() && path(s).exists()
     fun isInstalled(id: String) = ModelCatalog.byId(id)?.let(::isInstalled) ?: false
 
@@ -201,6 +202,7 @@ class ModelManager(private val ctx: Context, private val scope: CoroutineScope) 
                 if (e.isDirectory) { out.mkdirs(); continue }
                 out.parentFile?.mkdirs()
                 FileOutputStream(out).use { tar.copyTo(it, 1 shl 16) }
+                check(out.length() == e.size) { "File estratto incompleto: ${out.name}. Riscarica il modello." }
             }
         }
         check(target.exists()) { "Cartella attesa non trovata dopo l'estrazione: ${spec.localName}" }

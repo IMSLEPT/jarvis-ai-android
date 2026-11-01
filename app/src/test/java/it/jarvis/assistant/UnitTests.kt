@@ -80,3 +80,16 @@ class UserAnswerTest {
         assertNull(it.jarvis.assistant.core.awaitUserAnswer(typed, false, 20, 30) { "non usare" })
     }
 }
+
+
+class ModelFileTest {
+    @Test fun truncatedGraphRejectedBeforeNativeLoad() {
+        val file = java.io.File.createTempFile("truncated-model", ".onnx")
+        try {
+            // Campo graph (7), lunghezza dichiarata 4096, ma contiene soltanto 2048 byte.
+            file.writeBytes(byteArrayOf(0x3a, 0x80.toByte(), 0x20) + ByteArray(2048))
+            try { it.jarvis.assistant.models.ModelFiles.requireCompleteOnnx(file); fail("Modello troncato accettato") }
+            catch (_: IllegalStateException) { }
+        } finally { file.delete() }
+    }
+}

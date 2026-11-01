@@ -1,3 +1,10 @@
+## 1 novembre 2026 — Rilevatore dedicato, voci e scrittura
+- openWakeWord Hey Jarvis integrato con LiteRT; il vecchio KWS inglese non è più usato.
+- Anteprima Piper senza callback JNI, errori espliciti e pulsante Interrompi.
+- Ripresa del servizio autorizzato, microfono VOICE_RECOGNITION, orari ultimo frame/richiamo per la diagnostica.
+- Scrittura nella finestra esterna corretta, rilettura del testo, collegamento WhatsApp con bozza e contatto/numero.
+- Aggiunti test con modelli nativi reali, PCM del richiamo, microfono in background e campo di chat in un APK separato.
+
 ## 1 novembre 2026 — Interfaccia, assistente e stabilità
 - Nuova Home e icona fornita, chat con gestione IME e contrasto esplicito, schermate impostazioni scorrevoli con tastiera.
 - VoiceInteractionService, sessione assistente in basso e overlay facoltativo per Hey Jarvis sopra altre app.

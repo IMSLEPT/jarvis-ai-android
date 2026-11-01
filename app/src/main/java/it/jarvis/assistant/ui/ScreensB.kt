@@ -234,8 +234,8 @@ fun VoiceScreen(onBack: () -> Unit) {
 
     ScreenScaffold("Voce e modelli", onBack) {
         JCard {
-            Section("MODELLI (NESSUNO È INCLUSO NELL'APK)")
-            Hint("Tutti open source e gratuiti, eseguiti sul telefono. Scaricali con il Wi-Fi: i file essenziali pesano circa 600 MB. Il download riprende se interrotto.")
+            Section("MODELLI VOCALI")
+            Hint("Il rilevatore Hey Jarvis è già incluso. Scarica con il Wi-Fi riconoscimento italiano, VAD e una voce. Sono eseguiti sul telefono; il download riprende se interrotto.")
             Button(onClick = {
                 listOf(ModelCatalog.kws, ModelCatalog.vad, ModelCatalog.stt, ModelCatalog.voices.first()).forEach { g.models.install(it) }
             }) { Text("Scarica tutti gli essenziali") }

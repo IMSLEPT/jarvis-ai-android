@@ -35,6 +35,7 @@ class TtsEngine(private val models: ModelManager, private val settings: Settings
         release()
         val dir = models.path(spec)
         val model = dir.listFiles { f -> f.name.endsWith(".onnx") }?.firstOrNull() ?: error("File della voce mancante: riscarica ${spec.title}.")
+        it.jarvis.assistant.models.ModelFiles.requireCompleteOnnx(model)
         val tokens = File(dir, "tokens.txt")
         val data = File(dir, "espeak-ng-data")
         check(model.length() > 1024 && tokens.length() > 0 && File(data, "phontab").isFile && File(data, "phondata").isFile) {
