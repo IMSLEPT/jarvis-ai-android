@@ -223,6 +223,8 @@ fun VoiceScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var enrollMsg by remember { mutableStateOf("") }
     var enrolling by remember { mutableStateOf(false) }
+    val voiceState by g.core.state.collectAsState()
+    val canEnroll = !g.core.micRunning && voiceState in setOf(it.jarvis.assistant.core.JState.OFF, it.jarvis.assistant.core.JState.ERROR)
     var testMsg by remember { mutableStateOf("") }
     val micPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
@@ -260,10 +262,11 @@ fun VoiceScreen(onBack: () -> Unit) {
             Section("RICONOSCIMENTO DELLA TUA VOCE (FACOLTATIVO)")
             Hint("Jarvis può eseguire solo comandi pronunciati con la tua voce. Il profilo è un vettore matematico cifrato nel Keystore: non è audio, non viene esportato né salvato nei backup. Il modello non è stato validato su italiano: calibra la soglia con i tuoi test.")
             Text(if (g.speaker.hasProfile()) "Profilo vocale: presente ✓" else "Profilo vocale: assente", color = MaterialTheme.colorScheme.onSurface)
-            Button(enabled = !enrolling && g.speaker.modelInstalled && g.models.isInstalled(ModelCatalog.vad), onClick = {
+            Button(enabled = canEnroll && !enrolling && g.speaker.modelInstalled && g.models.isInstalled(ModelCatalog.vad), onClick = {
                 if (!ctx.hasMic()) { micPerm.launch(android.Manifest.permission.RECORD_AUDIO); return@Button }
                 enrolling = true
                 scope.launch {
+                    try {
                     val samples = mutableListOf<FloatArray>()
                     for ((i, ph) in enrollPhrases.withIndex()) {
                         enrollMsg = "Frase ${i + 1}/${enrollPhrases.size} — leggi ad alta voce:\n«$ph»"
@@ -276,21 +279,27 @@ fun VoiceScreen(onBack: () -> Unit) {
                     val res = withContext(Dispatchers.Default) { g.speaker.enroll(samples) }
                     if (res.ok) g.settings.speakerThreshold = res.suggestedThreshold
                     enrollMsg = res.message + if (res.ok) " Soglia impostata a %.2f.".format(res.suggestedThreshold) else ""
-                    enrolling = false
+                    } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                    catch (e: Exception) { enrollMsg = "Registrazione non riuscita: riprova."; DiagLog.e("Voce", "Registrazione", e) }
+                    finally { withContext(kotlinx.coroutines.NonCancellable + Dispatchers.Default) { g.core.endEnrollmentSession() }; enrolling = false }
                 }
             }) { Text(if (enrolling) "Registrazione in corso…" else "Registra la mia voce (5 frasi)") }
+            if (!canEnroll && !enrolling) Hint("Spegni prima Hey Jarvis dalla Home per registrare o verificare il profilo vocale.")
             if (!g.speaker.modelInstalled) Hint("Scarica prima il modello «Riconoscimento della tua voce».")
             if (enrollMsg.isNotBlank()) Text(enrollMsg, color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)
-            OutlinedButton(enabled = g.speaker.hasProfile() && !enrolling, onClick = {
+            OutlinedButton(enabled = canEnroll && g.speaker.hasProfile() && !enrolling, onClick = {
                 enrolling = true; testMsg = "Di' una frase…"
                 scope.launch {
+                    try {
                     val seg = g.core.recordForEnrollment(9_000)
                     g.core.endEnrollmentSession()
                     testMsg = if (seg == null) "Non ho sentito nulla." else {
                         val s = withContext(Dispatchers.Default) { g.speaker.score(seg) }
                         if (s == null) "Frase troppo breve." else "Somiglianza %.2f (soglia %.2f) → %s".format(s, g.settings.speakerThreshold, if (s >= g.settings.speakerThreshold) "ACCETTATA" else "RIFIUTATA")
                     }
-                    enrolling = false
+                    } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                    catch (e: Exception) { testMsg = "Prova non riuscita: riprova."; DiagLog.e("Voce", "Verifica", e) }
+                    finally { withContext(kotlinx.coroutines.NonCancellable + Dispatchers.Default) { g.core.endEnrollmentSession() }; enrolling = false }
                 }
             }) { Text("Prova il riconoscimento") }
             if (testMsg.isNotBlank()) Text(testMsg, color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)

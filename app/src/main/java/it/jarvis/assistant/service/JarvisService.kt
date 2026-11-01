@@ -42,7 +42,7 @@ class JarvisService : Service() {
             combine(graph.core.state, graph.core.appVisible, graph.core.pendingConfirm) { state, visible, confirm -> Triple(state, visible, confirm) }.collect { (state, visible, confirm) ->
                 idleDismiss?.cancel()
                 when {
-                    state == JState.OFF || state == JState.ERROR -> { surface.hide(); panelRequested = false }
+                    state == JState.OFF || state == JState.ERROR -> { surface.hide(); panelRequested = false; if (state == JState.ERROR && initJob?.isActive != true) stopSelf() }
                     visible -> surface.hide()
                     state == JState.ACTING || (state == JState.THINKING && confirm == null) -> surface.hide()
                     panelRequested -> {

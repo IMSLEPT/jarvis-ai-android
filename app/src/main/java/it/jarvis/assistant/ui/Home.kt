@@ -37,6 +37,7 @@ import it.jarvis.assistant.core.JState
 import it.jarvis.assistant.device.JarvisAccessibilityService
 import it.jarvis.assistant.graph
 import it.jarvis.assistant.service.JarvisService
+import kotlinx.coroutines.flow.first
 
 @Composable
 fun HomeScreen(onMenu: () -> Unit, go: (String) -> Unit) {
@@ -64,12 +65,17 @@ fun HomeScreen(onMenu: () -> Unit, go: (String) -> Unit) {
         else perms.launch(arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS))
     }
     fun send() { if (text.isNotBlank()) { g.core.submitText(text); text = "" } }
-    LaunchedEffect(chat.size, confirm) {
-        if (chat.isNotEmpty()) listState.animateScrollToItem(listState.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1)
-    }
     @Suppress("UNUSED_VARIABLE") val modelRefresh = models
     val voiceReady = listOf("kws", "vad", "stt").all { g.models.isInstalled(it) }
     val aiReady = g.llm.isConfigured()
+    LaunchedEffect(chat.size, confirm, error, voiceReady, aiReady, connected) {
+        if (chat.isNotEmpty()) {
+            val expected = 2 + chat.size + (if (error != null) 1 else 0) + (if (!aiReady || !voiceReady || !connected) 1 else 0) + (if (confirm != null) 1 else 0)
+            val count = snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it == expected }
+            listState.animateScrollToItem(count - 1)
+        }
+    }
+
 
     Column(Modifier.fillMaxSize().systemBarsPadding().imePadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {

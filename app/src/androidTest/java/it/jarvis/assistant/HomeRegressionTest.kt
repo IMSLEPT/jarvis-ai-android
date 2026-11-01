@@ -1,0 +1,56 @@
+package it.jarvis.assistant
+
+import android.Manifest
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.test.rule.GrantPermissionRule
+import androidx.test.platform.app.InstrumentationRegistry
+import it.jarvis.assistant.core.Msg
+import it.jarvis.assistant.ui.MainActivity
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import java.io.File
+
+class HomeRegressionTest {
+    @get:Rule val microphone = GrantPermissionRule.grant(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS)
+    @get:Rule val ui = createAndroidComposeRule<MainActivity>()
+    @Before fun reset() { ui.runOnIdle { ui.activity.graph.core.chat.value = emptyList(); ui.activity.graph.core.error.value = null } }
+
+    @Test fun composerRemainsVisibleWhileTyping() {
+        screenshot("home")
+        ui.onNode(hasSetTextAction()).performClick().performTextInput("Messaggio scritto di prova")
+        ui.onNodeWithText("Messaggio scritto di prova").assertIsDisplayed()
+        ui.onNodeWithContentDescription("Invia comando").assertIsDisplayed()
+        screenshot("chat-keyboard")
+    }
+    @Test fun longConversationScrollsToLastMessage() {
+        ui.runOnIdle { ui.activity.graph.core.chat.value = List(25) { Msg(if (it % 2 == 0) "user" else "jarvis", "Messaggio numero $it") } }
+        ui.waitForIdle()
+        ui.onNodeWithText("Messaggio numero 24").assertIsDisplayed()
+        ui.onNode(hasSetTextAction()).assertIsDisplayed()
+        screenshot("conversation")
+    }
+    @Test fun microphoneWithoutModelsShowsErrorInsteadOfCrashing() {
+        ui.onNodeWithContentDescription("Parla con Jarvis").performClick()
+        ui.waitUntil(10_000) { ui.activity.graph.core.error.value != null }
+        ui.onNode(hasSetTextAction()).performClick().performTextInput("La chat funziona ancora")
+        ui.onNodeWithText("La chat funziona ancora").assertIsDisplayed()
+    }
+    @Test fun settingsAndBackNavigationRemainAvailable() {
+        ui.onNodeWithContentDescription("Impostazioni e strumenti").performClick()
+        ui.onNodeWithText("Permessi", substring = false).performClick()
+        ui.onNodeWithText("Configura il tuo assistente").assertIsDisplayed()
+        screenshot("permissions")
+        ui.onNodeWithContentDescription("Indietro").performClick()
+        ui.onNodeWithText("Menu", substring = false).assertIsDisplayed()
+    }
+    private fun screenshot(name: String) {
+        ui.waitForIdle()
+        val ctx = ui.activity
+        val directory = File(ctx.getExternalFilesDir(null), "screenshots").apply { mkdirs() }
+        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot() ?: return
+        File(directory, "$name.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        bitmap.recycle()
+    }
+}

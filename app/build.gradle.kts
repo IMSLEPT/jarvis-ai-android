@@ -18,10 +18,11 @@ android {
         applicationId = "it.jarvis.assistant"
         minSdk = 31
         targetSdk = 36
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         versionCode = ciVersionCode
         versionName = "0.1.$ciVersionCode"
         // Pixel 9 Pro XL è arm64: niente ABI inutili (APK più piccolo)
-        ndk { abiFilters += listOf("arm64-v8a") }
+        ndk { abiFilters += listOf(if (System.getenv("JARVIS_EMULATOR") == "true") "x86_64" else "arm64-v8a") }
     }
 
     signingConfigs {
@@ -83,6 +84,11 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.apache.commons:commons-compress:1.27.1")
 
+    androidTestImplementation(composeBom)
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:rules:1.6.1")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
 }

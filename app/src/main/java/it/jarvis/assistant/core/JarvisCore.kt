@@ -134,7 +134,7 @@ class JarvisCore(
         consumer?.cancel(); consumer = null
         housekeeping?.cancel(); housekeeping = null
         while (frames.tryReceive().isSuccess) { /* scarta audio precedente */ }
-        wake.release(); vad.release(); speaker.release()
+        wake.release(); vad.release(); speaker.release(); stt.unload(); tts.release()
         state.value = JState.OFF
         level.value = 0f
     }
