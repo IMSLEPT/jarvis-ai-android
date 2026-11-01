@@ -19,9 +19,18 @@ object ScreenObserver {
     private const val MAX_NODES = 120
     private const val MAX_CHARS = 4500
 
+    /** Non leggere la tastiera o il pannello assistente come se fossero WhatsApp. */
+    fun activeRoot(svc: JarvisAccessibilityService): AccessibilityNodeInfo? {
+        val application = svc.windows.filter { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION }
+        return application.firstOrNull { it.isActive && it.root?.packageName?.toString() != svc.packageName }?.root
+            ?: application.firstOrNull { it.isFocused && it.root?.packageName?.toString() != svc.packageName }?.root
+            ?: application.firstOrNull { it.root?.packageName?.toString() == svc.currentPackage && svc.currentPackage != svc.packageName }?.root
+            ?: svc.rootInActiveWindow
+    }
+
     fun observe(svc: JarvisAccessibilityService?): Observation {
         if (svc == null) return Observation("", "(Servizio di accessibilità NON attivo: posso solo aprire app e link, non leggere o toccare lo schermo.)", 0, emptyMap(), false)
-        val root = svc.rootInActiveWindow
+        val root = activeRoot(svc)
             ?: return Observation(svc.currentPackage, "(Schermata non leggibile: potrebbe essere protetta o in transizione.)", 1, emptyMap(), true)
         val nodes = LinkedHashMap<Int, AccessibilityNodeInfo>()
         val sb = StringBuilder()
@@ -50,6 +59,7 @@ object ScreenObserver {
                     if (!text.isNullOrBlank()) sb.append(" \"").append(text.replace('\n', ' ')).append('"')
                     if (!desc.isNullOrBlank() && desc != text) sb.append(" desc=\"").append(desc.replace('\n', ' ')).append('"')
                     if (!hint.isNullOrBlank()) sb.append(" hint=\"").append(hint).append('"')
+                    n.viewIdResourceName?.let { sb.append(" viewId=").append(it) }
                     if (flags.isNotEmpty()) sb.append(" {").append(flags.joinToString(",")).append('}')
                     sb.append(" @").append(r.centerX()).append(',').append(r.centerY()).append('\n')
                 }

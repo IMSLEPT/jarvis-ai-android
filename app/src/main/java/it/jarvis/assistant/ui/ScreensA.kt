@@ -197,6 +197,11 @@ private fun PermissionsScreen(onBack: () -> Unit) {
     val overlay = AndroidSettings.canDrawOverlays(ctx)
     ScreenScaffold("Configura il tuo assistente", onBack) {
         JCard {
+            Section("WHATSAPP E RUBRICA")
+            Hint("Consenti la rubrica per preparare messaggi a un nome senza dover cercare la chat sullo schermo. Il messaggio resta una bozza; l’invio richiede conferma. Se ci sono più numeri, Jarvis ti chiede quale usare.")
+            OutlinedButton(onClick = { micLauncher.launch(arrayOf(android.Manifest.permission.READ_CONTACTS)) }) { Text("Consenti rubrica per WhatsApp") }
+        }
+        JCard {
             Section("ASSISTENTE DI ANDROID")
             Text(if (assistant) "Jarvis è il tuo assistente predefinito ✓" else "Richiama Jarvis con il gesto assistente", fontWeight = FontWeight.SemiBold)
             Hint("Seleziona Jarvis come assistente digitale per aprire il pannello in basso con il gesto o il pulsante assistente del telefono. Per «Hey Jarvis», scarica i modelli vocali e attiva l’ascolto dalla Home: rimane una notifica con il pulsante Ferma.")

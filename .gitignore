@@ -13,3 +13,6 @@ captures/
 # Mai committare chiavi API, profili vocali o modelli scaricati
 jarvis-backup*.json
 *.onnx
+
+# Fetched and checksum-verified by CI
+app/src/main/assets/wake/*.tflite

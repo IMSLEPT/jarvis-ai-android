@@ -20,15 +20,23 @@ import it.jarvis.assistant.core.JState
 import it.jarvis.assistant.diag.DiagLog
 import it.jarvis.assistant.graph
 import it.jarvis.assistant.ui.MainActivity
+import it.jarvis.assistant.ui.hasMic
 import it.jarvis.assistant.ui.stateLabel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 
 /** Assistente selezionabile nelle impostazioni Android; nessun privilegio di sistema simulato. */
 class JarvisVoiceInteractionService : VoiceInteractionService() {
-    override fun onReady() { super.onReady(); instance = this }
+    private var destroyed = false
+    override fun onReady() {
+        super.onReady()
+        if (destroyed) return
+        instance = this
+        // L'assistente predefinito è un'esenzione Android documentata per il servizio microfono.
+        if (graph.settings.voiceEnabled && hasMic() && graph.models.isInstalled("vad")) JarvisService.start(this)
+    }
     override fun onShutdown() { if (instance === this) instance = null; super.onShutdown() }
-    override fun onDestroy() { if (instance === this) instance = null; super.onDestroy() }
+    override fun onDestroy() { destroyed = true; if (instance === this) instance = null; super.onDestroy() }
     companion object { @Volatile var instance: JarvisVoiceInteractionService? = null }
 }
 
@@ -76,13 +84,14 @@ class AssistantSurface(private val ctx: Context) {
         if (voice != null) {
             if (JarvisSession.active == null) try { voice.showSession(Bundle().apply { putBoolean("from_jarvis", true) }, 0) }
             catch (e: Exception) { DiagLog.e("Assistente", "Pannello di sistema non disponibile", e) }
-            return
+            if (JarvisSession.active != null) return
+            if (!Settings.canDrawOverlays(ctx)) return
         }
         if (panel != null || !Settings.canDrawOverlays(ctx)) return
         val p = AssistantPanel(ctx, { dismissed = true; hide(); ctx.graph.core.stopAll() }, { dismissed = true; hide(); openApp(ctx) })
         val lp = WindowManager.LayoutParams(-1, -2, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
-            PixelFormat.TRANSLUCENT).apply { gravity = Gravity.BOTTOM; softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE }
+            PixelFormat.TRANSLUCENT).apply { title = "Jarvis assistant"; gravity = Gravity.BOTTOM; softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE }
         try { wm.addView(p.view, lp); panel = p; p.bind() }
         catch (e: Exception) { p.unbind(); DiagLog.e("Assistente", "Permesso pannello non disponibile", e) }
     }

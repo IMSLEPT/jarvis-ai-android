@@ -74,6 +74,8 @@ class JarvisCore(
     val chat = MutableStateFlow<List<Msg>>(emptyList())
     val status = MutableStateFlow("")
     val level = MutableStateFlow(0f)
+    val lastAudioFrame = MutableStateFlow(0L)
+    val lastWake = MutableStateFlow(0L)
     val error = MutableStateFlow<String?>(null)
     /** Domanda di conferma in attesa (la UI mostra Sì/No; si può anche rispondere a voce). */
     val pendingConfirm = MutableStateFlow<String?>(null)
@@ -98,7 +100,6 @@ class JarvisCore(
         error.value = null
         if (!wake.load()) return fail("Modello «Hey Jarvis» non installato: scaricalo in Modelli e voce.")
         if (!vad.load()) return fail("Modello di rilevamento voce non installato: scaricalo in Modelli e voce.")
-        if (!stt.isInstalled) return fail("Scarica il riconoscimento vocale italiano in Voce e modelli.")
         if (settings.speakerVerify && !speaker.hasProfile()) return fail("Registra il tuo profilo vocale oppure disattiva «Accetta solo la mia voce».")
         micOnlyForEnroll = false
         if (!mic.isRunning && !startMic()) return fail("Impossibile avviare il microfono (permesso concesso?).")
@@ -117,15 +118,19 @@ class JarvisCore(
                 catch (e: Throwable) { DiagLog.e(tag, "Errore nel ciclo audio", Exception(e)) }
             }
         }
-        val ok = mic.start(onFrame = { f ->
-            var s = 0f; for (x in f) s += x * x
-            level.value = (sqrt(s / f.size) * 8f).coerceIn(0f, 1f)
-            frames.trySend(f)
-        }, onError = {
+        val ok = mic.start(onFrame = ::acceptAudioFrame, onError = {
             scope.launch { stopVoice(); reportError("Il microfono è stato interrotto dal sistema. Riapri Jarvis e riattiva l’ascolto.") }
         })
         if (housekeeping?.isActive != true) housekeeping = scope.launch { housekeepingLoop() }
         return ok
+    }
+
+    /** Ingresso PCM del microfono. */
+    private fun acceptAudioFrame(f: FloatArray) {
+        lastAudioFrame.value = android.os.SystemClock.elapsedRealtime()
+        var sum = 0f; for (x in f) sum += x*x
+        level.value = (sqrt(sum / f.size.coerceAtLeast(1)) * 8f).coerceIn(0f,1f)
+        frames.trySend(f)
     }
 
     fun stopVoice() = synchronized(lifecycleLock) {
@@ -186,6 +191,7 @@ class JarvisCore(
     fun listenNow() { if (mic.isRunning) onWake() }
 
     private fun onWake() {
+        lastWake.value = System.currentTimeMillis()
         wake.reset()
         activations.tryEmit(Unit)
         vibrate()

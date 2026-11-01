@@ -20,6 +20,8 @@ class Settings(ctx: Context) {
     private fun put(k: String, v: Float) { p.edit().putFloat(k, v).apply(); bump() }
 
     var themeMode: String get() = str("theme", "dark"); set(v) = put("theme", v)           // dark | light | system
+    var hotwordThreshold: Float get() = p.getFloat("hotword_oww_threshold", 0.5f); set(v) = put("hotword_oww_threshold", v.coerceIn(.15f,.85f))
+    var voiceEnabled: Boolean get() = p.getBoolean("voice_enabled", false); set(v) = put("voice_enabled", v)
     var wakeEnabled: Boolean get() = p.getBoolean("wake", true); set(v) = put("wake", v)
     /** 0.10 = molto sensibile … 0.45 = poco sensibile */
     var wakeThreshold: Float get() = p.getFloat("wake_thr", 0.2f); set(v) = put("wake_thr", v)

@@ -1,7 +1,7 @@
 name: Android UI regression
 on:
   push:
-    branches: [main]
+    branches: [main, fix/voice-background-whatsapp]
   workflow_dispatch:
 permissions:
   contents: read
@@ -20,6 +20,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.14.3
+      - name: Fetch bundled Hey Jarvis model
+        run: bash scripts/fetch-wake-models.sh
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules

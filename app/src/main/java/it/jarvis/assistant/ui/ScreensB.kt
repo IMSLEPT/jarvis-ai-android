@@ -226,6 +226,10 @@ fun VoiceScreen(onBack: () -> Unit) {
     val voiceState by g.core.state.collectAsState()
     val canEnroll = !g.core.micRunning && voiceState in setOf(it.jarvis.assistant.core.JState.OFF, it.jarvis.assistant.core.JState.ERROR)
     var testMsg by remember { mutableStateOf("") }
+    var previewBusy by remember { mutableStateOf(false) }
+    var previewStatus by remember { mutableStateOf("") }
+    val wakeScore by g.wake.score.collectAsState()
+    val wakePeak by g.wake.peak.collectAsState()
     val micPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     ScreenScaffold("Voce e modelli", onBack) {
@@ -248,14 +252,24 @@ fun VoiceScreen(onBack: () -> Unit) {
                     Text(v.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
                 }
             }
-            OutlinedButton(enabled = installed.isNotEmpty(), onClick = { scope.launch { g.tts.speak("Ciao Alessandro, sono Jarvis. Come posso aiutarti?") } }) { Text("Ascolta la voce") }
+            OutlinedButton(enabled = installed.isNotEmpty() && !previewBusy, onClick = {
+                previewBusy = true; previewStatus = "Preparo la voce…"
+                scope.launch {
+                    try { val ok = g.tts.speak("Ciao Alessandro, sono Jarvis. Come posso aiutarti?", preview = true)
+                        previewStatus = if (ok) "Anteprima riprodotta." else g.tts.failure.value ?: "Anteprima interrotta."
+                    } finally { previewBusy = false }
+                }
+            }) { Text(if (previewBusy) "Riproduzione…" else "Ascolta la voce") }
+            if (previewBusy) TextButton(onClick = { g.tts.stop() }) { Text("Interrompi anteprima") }
+            if (previewStatus.isNotBlank()) Hint(previewStatus)
             Hint("Scegli ad orecchio la voce più naturale: la qualità percepita è soggettiva e non l'ho potuta ascoltare per te.")
         }
 
         JCard {
             Section("PAROLA DI ATTIVAZIONE")
-            SliderRow("Sensibilità", 0.55f - g.settings.wakeThreshold, 0.10f..0.45f, { "%.2f".format(it) }) { g.settings.wakeThreshold = 0.55f - it }
-            Hint("Più alta = si attiva più facilmente (ma anche più falsi allarmi). Il modello è addestrato su inglese: prova «Hey Jarvis» con la tua pronuncia e regola. Varianti riconosciute: Hey / Hei / Ehi / OK Jarvis. Dopo la modifica riavvia l'ascolto.")
+            SliderRow("Sensibilità", 1f - g.settings.hotwordThreshold, 0.15f..0.85f, { "%.2f".format(it) }) { g.settings.hotwordThreshold = 1f - it }
+            Hint("Modello dedicato Hey Jarvis integrato. Le regolazioni sono immediate: sensibilità maggiore riconosce più facilmente ma può aumentare i falsi richiami. L’ascolto deve essere attivo (notifica presente).")
+            Hint("Segnale attuale: %.2f · massimo osservato: %.2f · soglia: %.2f".format(wakeScore, wakePeak, g.settings.hotwordThreshold))
         }
 
         JCard {
@@ -320,7 +334,7 @@ private fun ModelRow(spec: ModelSpec, st: ModelState) {
         when (st) {
             is ModelState.Installed -> {
                 Text("Installato ✓", color = JColors.Ok)
-                TextButton(enabled = !g.core.micRunning, onClick = { g.models.remove(spec) }) { Text("Rimuovi") }
+                TextButton(enabled = !spec.bundled && !g.core.micRunning, onClick = { g.models.remove(spec) }) { Text("Rimuovi") }
             }
             is ModelState.Downloading -> {
                 val p = if (st.total > 0) st.done.toFloat() / st.total else 0f

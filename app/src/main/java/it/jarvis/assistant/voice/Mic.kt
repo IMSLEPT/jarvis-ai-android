@@ -25,7 +25,7 @@ class Mic {
         try {
             val minBuf = AudioRecord.getMinBufferSize(16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
             if (minBuf <= 0) return false
-            val r = AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION, 16000,
+            val r = AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, 16000,
                 AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, maxOf(minBuf, 16000))
             rec = r
             check(r.state == AudioRecord.STATE_INITIALIZED) { "Microfono non inizializzato" }

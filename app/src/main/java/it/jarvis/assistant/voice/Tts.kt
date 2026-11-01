@@ -3,125 +3,107 @@ package it.jarvis.assistant.voice
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
-import com.k2fsa.sherpa.onnx.OfflineTts
-import com.k2fsa.sherpa.onnx.OfflineTtsConfig
-import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig
-import com.k2fsa.sherpa.onnx.OfflineTtsVitsModelConfig
+import com.k2fsa.sherpa.onnx.*
 import it.jarvis.assistant.core.Settings
 import it.jarvis.assistant.diag.DiagLog
 import it.jarvis.assistant.models.ModelCatalog
 import it.jarvis.assistant.models.ModelManager
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
 import java.io.File
 
-/** Sintesi vocale italiana offline con voci Piper (VITS) tramite sherpa-onnx, riprodotta in streaming. */
+/** Piper senza callback JNI: la callback C++→Kotlin non è sicura con tutti i runtime/lambda. */
 class TtsEngine(private val models: ModelManager, private val settings: Settings) {
     private val nativeLock = Any()
     private var tts: OfflineTts? = null
-    private var loadedVoice: String = ""
+    private var loadedVoice = ""
     @Volatile private var cancelled = false
     @Volatile private var track: AudioTrack? = null
     @Volatile var lastUsed = 0L
-
+        private set
+    @Volatile var generatedSamples = 0L
+        private set
+    val failure = MutableStateFlow<String?>(null)
     val isSpeaking get() = track != null
-
     private fun currentSpec() = ModelCatalog.byId(settings.ttsVoice)?.takeIf { models.isInstalled(it) }
         ?: ModelCatalog.voices.firstOrNull { models.isInstalled(it) }
-
     fun available() = currentSpec() != null
 
-    private fun ensure(): OfflineTts? {
-        val spec = currentSpec() ?: return null
-        if (tts != null && loadedVoice == spec.id) return tts
+    private fun ensure(): OfflineTts {
+        val spec = currentSpec() ?: error("Installa una voce italiana in Voce e modelli.")
+        if (tts != null && loadedVoice == spec.id) return tts!!
         release()
         val dir = models.path(spec)
-        val onnx = dir.listFiles { f -> f.name.endsWith(".onnx") }?.firstOrNull() ?: return null
-        val cfg = OfflineTtsConfig(
-            model = OfflineTtsModelConfig(
-                vits = OfflineTtsVitsModelConfig(
-                    model = onnx.absolutePath,
-                    tokens = File(dir, "tokens.txt").absolutePath,
-                    dataDir = File(dir, "espeak-ng-data").absolutePath,
-                ),
-                numThreads = 2,
-                debug = false,
-                provider = "cpu",
-            ),
-            maxNumSentences = 1,
-        )
-        return try {
-            val t0 = System.currentTimeMillis()
-            val t = OfflineTts(config = cfg)
-            tts = t; loadedVoice = spec.id
-            DiagLog.i("TTS", "Voce ${spec.id} caricata in ${System.currentTimeMillis() - t0} ms (sr=${t.sampleRate()})")
-            t
-        } catch (e: Throwable) {
-            DiagLog.e("TTS", "Caricamento voce fallito", Exception(e))
-            null
+        val model = dir.listFiles { f -> f.name.endsWith(".onnx") }?.firstOrNull() ?: error("File della voce mancante: riscarica ${spec.title}.")
+        val tokens = File(dir, "tokens.txt")
+        val data = File(dir, "espeak-ng-data")
+        check(model.length() > 1024 && tokens.length() > 0 && File(data, "phontab").isFile && File(data, "phondata").isFile) {
+            "Download voce incompleto: rimuovi e riscarica ${spec.title}."
+        }
+        return OfflineTts(config = OfflineTtsConfig(model = OfflineTtsModelConfig(
+            vits = OfflineTtsVitsModelConfig(model = model.absolutePath, tokens = tokens.absolutePath, dataDir = data.absolutePath),
+            numThreads = 2, provider = "cpu"), maxNumSentences = 1)).also { tts = it; loadedVoice = spec.id }
+    }
+
+    /** true soltanto se sono stati generati e riprodotti campioni; anteprima indipendente dall'interruttore TTS. */
+    suspend fun speak(text: String, preview: Boolean = false): Boolean = withContext(Dispatchers.IO) {
+        val job = currentCoroutineContext()[Job]
+        synchronized(nativeLock) {
+            if ((!settings.ttsEnabled && !preview) || text.isBlank() || job?.isActive == false) return@synchronized false
+            cancelled = false; failure.value = null
+            try {
+                val engine = ensure()
+                var played = false
+                for (chunk in chunks(text)) {
+                    if (cancelled || job?.isActive == false) break
+                    // Nessun generateWithCallback: niente lambda JNI né campioni scritti da thread nativi.
+                    val audio = engine.generate(chunk, sid = 0, speed = settings.ttsSpeed.coerceIn(.7f, 1.4f))
+                    check(audio.samples.isNotEmpty() && audio.sampleRate in 8000..96000) { "La voce non ha prodotto audio valido." }
+                    generatedSamples += audio.samples.size
+                    if (cancelled || job?.isActive == false) break
+                    played = play(audio.samples, audio.sampleRate, job) || played
+                }
+                played
+            } catch (e: Exception) {
+                failure.value = e.message ?: "Riproduzione vocale non riuscita."
+                DiagLog.e("TTS", "Sintesi/riproduzione non riuscita", e)
+                false
+            } catch (e: LinkageError) {
+                failure.value = "Motore vocale non compatibile: aggiorna l’app."
+                DiagLog.e("TTS", "Libreria vocale", e)
+                false
+            } finally { lastUsed = System.currentTimeMillis() }
         }
     }
 
-    /** Parla e ritorna a fine riproduzione (o a stop()). */
-    suspend fun speak(text: String) = withContext(Dispatchers.IO) {
-        val job = kotlin.coroutines.coroutineContext[kotlinx.coroutines.Job]
-        synchronized(nativeLock) {
-        if (job?.isActive == false) return@synchronized
-        if (!settings.ttsEnabled || text.isBlank()) return@synchronized
-        try {
-        val engine = ensure() ?: run { DiagLog.w("TTS", "Nessuna voce installata: salto la sintesi"); return@synchronized }
-        cancelled = false
-        val sr = engine.sampleRate()
-        val minBuf = AudioTrack.getMinBufferSize(sr, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_FLOAT)
-        val at = AudioTrack.Builder()
-            .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANT).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
+    private fun play(samples: FloatArray, sr: Int, job: Job?): Boolean {
+        val min = AudioTrack.getMinBufferSize(sr, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_FLOAT)
+        check(min > 0) { "Formato audio non supportato dal dispositivo." }
+        val at = AudioTrack.Builder().setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANT)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
             .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_FLOAT).setSampleRate(sr).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
-            .setBufferSizeInBytes(maxOf(minBuf, sr * 4))
-            .setTransferMode(AudioTrack.MODE_STREAM)
-            .build()
+            .setBufferSizeInBytes(maxOf(min, sr * 2)).setTransferMode(AudioTrack.MODE_STREAM).build()
         track = at
-        var frames = 0L
         try {
             at.play()
-            engine.generateWithCallback(clean(text), sid = 0, speed = settings.ttsSpeed) { samples ->
-                if (cancelled || job?.isActive == false) return@generateWithCallback 0
-                var off = 0
-                while (off < samples.size && !cancelled && job?.isActive != false) {
-                    val n = at.write(samples, off, samples.size - off, AudioTrack.WRITE_BLOCKING)
-                    if (n <= 0) return@generateWithCallback 0
-                    off += n
-                }
-                frames += samples.size
-                if (cancelled || job?.isActive == false) 0 else 1
+            var offset = 0
+            while (offset < samples.size && !cancelled && job?.isActive != false) {
+                val n = at.write(samples, offset, minOf(4096, samples.size - offset), AudioTrack.WRITE_BLOCKING)
+                check(n > 0) { "Riproduzione audio interrotta ($n)." }; offset += n
             }
-            // attende lo svuotamento del buffer
-            var guard = 0
-            while (!cancelled && job?.isActive != false && at.playbackHeadPosition < frames && guard < 600) { Thread.sleep(25); guard++ }
-        } catch (e: Throwable) {
-            DiagLog.e("TTS", "Errore sintesi", Exception(e))
+            val deadline = System.currentTimeMillis() + samples.size * 1000L / sr + 3000
+            while (!cancelled && job?.isActive != false && at.playbackHeadPosition.toLong() < offset && System.currentTimeMillis() < deadline) Thread.sleep(15)
+            return offset > 0 && !cancelled && job?.isActive != false
         } finally {
-            try { at.stop() } catch (_: Exception) {}
-            try { at.release() } catch (_: Exception) {}
             track = null
-            lastUsed = System.currentTimeMillis()
+            try { at.stop() } catch (_: Exception) {}
+            at.release()
         }
-        } catch (e: Exception) { DiagLog.e("TTS", "Riproduzione non disponibile", e) }
-        }
     }
-
-    fun stop() {
-        cancelled = true
-        try { track?.pause(); track?.flush() } catch (_: Exception) {}
+    fun stop() { cancelled = true; try { track?.pause(); track?.flush() } catch (_: Exception) {} }
+    fun release() = synchronized(nativeLock) { tts?.release(); tts = null; loadedVoice = "" }
+    private fun chunks(text: String): List<String> {
+        val clean = text.replace(Regex("https?://\\S+"), "link").replace(Regex("[*_`#>]+"), "").replace(Regex("\\s+"), " ").trim()
+        return clean.chunked(220).filter { it.isNotBlank() }
     }
-
-    fun release() = synchronized(nativeLock) {
-        try { tts?.release() } catch (_: Throwable) {}
-        tts = null; loadedVoice = ""
-    }
-
-    private fun clean(t: String): String = t
-        .replace(Regex("https?://\\S+"), "link")
-        .replace(Regex("[*_`#>]+"), "")
-        .replace(Regex("\\s+"), " ")
-        .trim()
 }

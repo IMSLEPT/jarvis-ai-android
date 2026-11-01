@@ -1,0 +1,8 @@
+Hey Jarvis wake detection: openWakeWord by David Scripka
+https://github.com/dscripka/openWakeWord
+Feature extractors and inference reference code: Apache License 2.0.
+Pretrained wake-word model hey_jarvis_v0.1: Creative Commons Attribution-NonCommercial-ShareAlike 4.0.
+https://creativecommons.org/licenses/by-nc-sa/4.0/
+This personal-use application bundles the upstream v0.5.1 model without retraining.
+The Kotlin streaming integration follows the upstream 16 kHz / 80 ms preprocessing pipeline.
+Commercial distribution requires a suitably licensed replacement wake model or separate permission.

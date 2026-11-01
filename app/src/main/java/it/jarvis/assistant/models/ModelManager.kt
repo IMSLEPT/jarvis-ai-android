@@ -37,6 +37,7 @@ data class ModelSpec(
     val approxMb: Int,
     val license: String,
     val required: Boolean,
+    val bundled: Boolean = false,
 )
 
 sealed interface ModelState {
@@ -51,10 +52,10 @@ object ModelCatalog {
     private const val GH = "https://github.com/k2-fsa/sherpa-onnx/releases/download"
 
     val kws = ModelSpec(
-        "kws", ModelKind.KWS, "Parola di attivazione «Hey Jarvis»",
-        "Zipformer 3.3M (sherpa-onnx KWS, addestrato su GigaSpeech inglese). Funziona anche con pronuncia italiana ma va provato.",
-        "$GH/kws-models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2", true,
-        "sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01", 17, "Apache-2.0", true
+        "kws", ModelKind.KWS, "Hey Jarvis · rilevatore integrato",
+        "openWakeWord, modello dedicato Hey Jarvis eseguito sul telefono. Già incluso: non serve scaricare il vecchio modello inglese Zipformer.",
+        "https://github.com/dscripka/openWakeWord/releases/download/v0.5.1/hey_jarvis_v0.1.tflite", false,
+        "hey_jarvis_v0.1.tflite", 3, "CC BY-NC-SA 4.0 / Apache-2.0", true, bundled = true
     )
     val vad = ModelSpec(
         "vad", ModelKind.VAD, "Rilevamento voce (Silero VAD)",
@@ -103,12 +104,14 @@ class ModelManager(private val ctx: Context, private val scope: CoroutineScope) 
 
     private fun marker(s: ModelSpec) = File(root, s.localName + ".ok")
     fun path(s: ModelSpec): File = File(root, s.localName)
-    fun isInstalled(s: ModelSpec) = marker(s).exists() && path(s).exists()
+    private val bundledWake by lazy { ctx.assets.list("wake")?.toSet()?.containsAll(setOf("melspectrogram.tflite", "embedding_model.tflite", "hey_jarvis_v0.1.tflite")) == true }
+    fun isInstalled(s: ModelSpec) = if (s.bundled) bundledWake else marker(s).exists() && path(s).exists()
     fun isInstalled(id: String) = ModelCatalog.byId(id)?.let(::isInstalled) ?: false
 
     private fun set(id: String, st: ModelState) { _states.update { it + (id to st) } }
 
     fun install(spec: ModelSpec) {
+        if (spec.bundled) { set(spec.id, if (isInstalled(spec)) ModelState.Installed else ModelState.Failed("Rilevatore integrato mancante: aggiorna l’app.")); return }
         if (jobs[spec.id]?.isActive == true) return
         jobs[spec.id] = scope.launch(Dispatchers.IO) {
             try {
@@ -137,6 +140,7 @@ class ModelManager(private val ctx: Context, private val scope: CoroutineScope) 
     fun cancel(spec: ModelSpec) { jobs[spec.id]?.cancel(); set(spec.id, ModelState.Missing) }
 
     fun remove(spec: ModelSpec) {
+        if (spec.bundled) return
         jobs[spec.id]?.cancel()
         marker(spec).delete()
         path(spec).deleteRecursively()

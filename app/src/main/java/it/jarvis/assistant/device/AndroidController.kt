@@ -7,6 +7,8 @@ import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
 import it.jarvis.assistant.diag.DiagLog
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.net.URLEncoder
 
 /** Esecutore delle azioni sul telefono. Ogni metodo restituisce una descrizione testuale del risultato per l'agente. */
@@ -54,12 +56,19 @@ class AndroidController(private val ctx: Context, val launcher: AppLauncher) {
         return if (launcher.openUrl(sb.toString(), pkg)) "OK: ricerca Booking aperta per «$dest». Leggi i risultati dallo schermo. NON prenotare." else "ERRORE: impossibile aprire la ricerca."
     }
 
-    fun whatsappMessage(phone: String, text: String): String {
-        val digits = phone.filter { it.isDigit() }
-        if (digits.length < 8) return "ERRORE: numero non valido (usa formato internazionale, es. 39333...)."
-        val url = "https://wa.me/$digits?text=" + URLEncoder.encode(text, "UTF-8")
-        val pkg = launcher.find("whatsapp")?.pkg
-        return if (launcher.openUrl(url, pkg)) "OK: chat WhatsApp aperta con bozza già scritta. Per inviare serve toccare «Invia» (richiede conferma)." else "ERRORE: WhatsApp non disponibile."
+    fun whatsappMessage(recipient: String, text: String): String {
+        if (text.isBlank()) return "ERRORE: manca il testo del messaggio. Chiedilo all’utente."
+        var number = ContactResolver.phone(recipient)
+        if (number == null) {
+            val matches = ContactResolver.find(ctx, recipient)
+            if (matches.isEmpty()) return "ERRORE: contatto non risolto. Se il permesso Rubrica non è concesso, chiedi di abilitarlo in Jarvis → Permessi, oppure cerca il nome in WhatsApp tramite lo schermo. Non inventare numeri."
+            if (matches.size > 1) return "ERRORE: più numeri corrispondono al nome. Chiedi quale usare: " + matches.joinToString { "${it.name} (numero che termina in ${it.phone.takeLast(4)})" }
+            number = matches.single().phone
+        }
+        val url = android.net.Uri.parse("https://api.whatsapp.com/send").buildUpon().appendQueryParameter("phone", number).appendQueryParameter("text", text).build().toString()
+        val pkg = launcher.find("whatsapp")?.pkg ?: return "ERRORE: WhatsApp non installato."
+        return if (launcher.openUrl(url, pkg)) "OK: aperta la chat WhatsApp con il testo come bozza. Verifica il campo messaggio sullo schermo. L’invio richiede conferma."
+        else "ERRORE: impossibile aprire la chat WhatsApp."
     }
 
     fun click(id: Int): String {
@@ -85,24 +94,56 @@ class AndroidController(private val ctx: Context, val launcher: AppLauncher) {
         return click(hit.key)
     }
 
-    fun typeText(text: String, id: Int?, submit: Boolean): String {
-        val s = svc ?: return "ERRORE: servizio di accessibilità non attivo."
-        var node: AccessibilityNodeInfo? = id?.let { last?.nodes?.get(it) }
-        if (node == null) node = s.rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
-        if (node == null) node = last?.nodes?.values?.firstOrNull { it.isEditable }
-        if (node == null) return "ERRORE: nessun campo di testo trovato. Tocca prima il campo."
-        if (node.isPassword) return "RIFIUTATO: non scrivo nei campi password."
-        node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
-        val args = Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text) }
-        var ok = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
-        if (!ok) { // fallback: incolla dagli appunti
-            val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            cm.setPrimaryClip(ClipData.newPlainText("jarvis", text))
-            ok = node.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+    suspend fun typeText(text: String, id: Int?, submit: Boolean): String = withContext(Dispatchers.Main) {
+        val service = svc ?: return@withContext "ERRORE: attiva il servizio in Jarvis → Permessi → Accessibilità per scrivere nelle altre app."
+        delay(150) // lascia chiudere il pannello assistente prima di individuare il campo esterno
+        fun editables(root: AccessibilityNodeInfo?): List<AccessibilityNodeInfo> {
+            val found = mutableListOf<AccessibilityNodeInfo>()
+            var visited = 0
+            fun walk(n: AccessibilityNodeInfo?, depth: Int) {
+                if (n == null || depth > 30 || visited++ > 500) return
+                if (n.isEditable && n.isVisibleToUser && n.isEnabled && !n.isPassword) found += n
+                for (i in 0 until n.childCount) walk(n.getChild(i), depth + 1)
+            }
+            walk(root, 0); return found
         }
-        if (!ok) return "ERRORE: scrittura non riuscita."
-        if (submit) node.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)
-        return "OK: scritto${if (submit) " e inviato dalla tastiera" else ""}"
+        fun select(): AccessibilityNodeInfo? {
+            val root = ScreenObserver.activeRoot(service) ?: return null
+            val pkg = root.packageName?.toString()
+            if (pkg == ctx.packageName) return null
+            val explicit = id?.let { last?.nodes?.get(it) }
+            if (explicit?.refresh() == true && explicit.isEditable && !explicit.isPassword && explicit.packageName?.toString() == pkg) return explicit
+            val fields = editables(root)
+            return fields.firstOrNull { it.viewIdResourceName == "com.whatsapp:id/entry" || it.viewIdResourceName == "com.whatsapp.w4b:id/entry" }
+                ?: fields.firstOrNull { it.isFocused }
+                ?: fields.singleOrNull()
+        }
+        var node = select() ?: return@withContext "ERRORE: nessun campo messaggio modificabile trovato. Apri prima la chat del destinatario, poi rileggi lo schermo."
+        if (node.isPassword) return@withContext "RIFIUTATO: non scrivo nei campi password."
+        repeat(3) { attempt ->
+            node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+            val args = Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text) }
+            node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+            delay(180)
+            node = select() ?: node
+            node.refresh()
+            if (node.text?.toString() == text) {
+                if (!submit) return@withContext "OK: testo inserito e verificato nel campo messaggio; non ancora inviato."
+                val submitted = node.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)
+                return@withContext if (submitted) "OK: testo verificato e richiesta di invio dalla tastiera eseguita. Verifica l’effettivo invio sullo schermo."
+                else "OK: testo scritto e verificato. L’app richiede il pulsante Invia; usa click dopo conferma."
+            }
+            if (attempt == 1) {
+                node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                cm.setPrimaryClip(ClipData.newPlainText("Bozza Jarvis", text))
+                node.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+                delay(180)
+            }
+        }
+        node.refresh()
+        if (node.text?.toString() == text) "OK: testo scritto e verificato; non ancora inviato."
+        else "ERRORE: l’app non ha applicato la scrittura. Non dichiarare il messaggio scritto o inviato. Rileggi lo schermo e prova whatsapp_message con contatto/numero."
     }
 
     fun scroll(direction: String): String {

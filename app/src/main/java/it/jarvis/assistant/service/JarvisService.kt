@@ -54,7 +54,8 @@ class JarvisService : Service() {
         }
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) { stopSelf(); return START_NOT_STICKY }
+        if (intent?.action == ACTION_STOP) { graph.settings.voiceEnabled = false; stopSelf(); return START_NOT_STICKY }
+        if (intent == null && !graph.settings.voiceEnabled) { stopSelf(); return START_NOT_STICKY }
         if (!hasMic()) { graph.core.reportError("Permesso microfono mancante: apri Permessi."); stopSelf(); return START_NOT_STICKY }
         try {
             val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
@@ -70,6 +71,7 @@ class JarvisService : Service() {
             graph.core.reportError("Android non consente l’ascolto adesso. Apri Jarvis e riattivalo dal pulsante in alto.")
             stopSelf(); return START_NOT_STICKY
         }
+        graph.settings.voiceEnabled = true
         commandRequested = commandRequested || intent?.getBooleanExtra(LISTEN_NOW, false) == true
         if (initJob?.isActive != true) initJob = scope.launch {
             val ok = withContext(Dispatchers.Default) { graph.core.startVoice() }
@@ -80,7 +82,7 @@ class JarvisService : Service() {
             }
             if (commandRequested) { commandRequested = false; graph.core.listenNow() }
         }
-        return START_NOT_STICKY
+        return START_STICKY
     }
     override fun onDestroy() {
         surface.hide()
@@ -103,6 +105,6 @@ class JarvisService : Service() {
             try { ctx.startForegroundService(Intent(ctx, JarvisService::class.java).putExtra(LISTEN_NOW, listenNow)) }
             catch (e: Exception) { DiagLog.e("Servizio", "Avvio non consentito", e); ctx.graph.core.reportError("Apri Jarvis per attivare il microfono e verifica i permessi.") }
         }
-        fun stop(ctx: Context) { ctx.stopService(Intent(ctx, JarvisService::class.java)) }
+        fun stop(ctx: Context) { ctx.graph.settings.voiceEnabled = false; ctx.stopService(Intent(ctx, JarvisService::class.java)) }
     }
 }

@@ -24,6 +24,9 @@ jobs:
         with:
           gradle-version: 8.14.3
 
+      - name: Fetch bundled Hey Jarvis model
+        run: bash scripts/fetch-wake-models.sh
+
       - name: Accetta licenze Android SDK
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
 

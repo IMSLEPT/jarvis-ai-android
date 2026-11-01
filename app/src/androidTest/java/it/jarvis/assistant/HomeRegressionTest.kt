@@ -40,6 +40,7 @@ class HomeRegressionTest {
         screenshot("conversation")
     }
     @Test fun microphoneWithoutModelsShowsErrorInsteadOfCrashing() {
+        ui.activity.graph.models.remove(it.jarvis.assistant.models.ModelCatalog.vad)
         ui.onNodeWithContentDescription("Parla con Jarvis").performClick()
         ui.waitUntil(10_000) { ui.activity.graph.core.error.value != null }
         ui.onNode(hasSetTextAction()).performClick().performTextInput("La chat funziona ancora")
