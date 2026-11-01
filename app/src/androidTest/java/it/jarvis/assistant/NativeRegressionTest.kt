@@ -47,6 +47,11 @@ class NativeRegressionTest {
         val automation = InstrumentationRegistry.getInstrumentation().getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
         android.os.ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand(cmd)).use { it.readBytes() }
     }
+    @Before fun ensureDeviceAwake() {
+        shell("input keyevent KEYCODE_WAKEUP")
+        shell("wm dismiss-keyguard")
+        ui.runOnIdle { ctx.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+    }
     @After fun stop() = runBlocking { JarvisService.stop(ctx); withTimeout(10_000) { while (g.core.micRunning) delay(100) } }
 
     @Test fun contactsAndItalianInternationalNumbersAreNormalized() {

@@ -15,10 +15,15 @@ import java.io.File
 class HomeRegressionTest {
     @get:Rule val microphone = GrantPermissionRule.grant(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS)
     @get:Rule val ui = createAndroidComposeRule<MainActivity>()
-    @Before fun reset() { ui.runOnIdle { ui.activity.graph.core.chat.value = emptyList(); ui.activity.graph.core.error.value = null } }
+    @Before fun reset() {
+        val automation = InstrumentationRegistry.getInstrumentation().getUiAutomation(android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
+        for (cmd in listOf("input keyevent KEYCODE_WAKEUP", "wm dismiss-keyguard")) android.os.ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand(cmd)).use { it.readBytes() }
+        ui.runOnIdle { ui.activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+        ui.runOnIdle { ui.activity.graph.core.chat.value = emptyList(); ui.activity.graph.core.error.value = null } }
 
     @Test fun composerRemainsVisibleWhileTyping() {
-        ui.waitUntil(15_000) { ui.activity.hasWindowFocus() }
+        try { ui.waitUntil(15_000) { ui.activity.hasWindowFocus() } }
+        catch (e: Exception) { screenshot("focus-failure"); throw e }
         screenshot("home")
         ui.onNode(hasSetTextAction()).performClick().performTextInput("Messaggio scritto di prova")
         ui.runOnIdle {

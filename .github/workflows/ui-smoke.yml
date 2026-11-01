@@ -41,8 +41,12 @@ jobs:
           profile: pixel_7_pro
           disable-animations: true
           script: |
+            adb shell settings put system screen_off_timeout 2147483647
+            adb shell svc power stayon true
+            adb shell input keyevent KEYCODE_WAKEUP
+            adb shell wm dismiss-keyguard
             adb shell settings put secure show_ime_with_hard_keyboard 1
-            gradle --no-daemon :app:testDebugUnitTest :app:connectedDebugAndroidTest
+            gradle --no-daemon :app:testDebugUnitTest :app:connectedDebugAndroidTest || { adb pull /sdcard/Download/jarvis-screenshots screenshots || true; adb shell dumpsys window > windows-on-failure.txt; exit 1; }
             adb pull /sdcard/Download/jarvis-screenshots screenshots
       - uses: actions/upload-artifact@v4
         if: always()
@@ -52,3 +56,4 @@ jobs:
             app/build/reports/androidTests
             app/build/outputs/androidTest-results
             screenshots
+            windows-on-failure.txt
