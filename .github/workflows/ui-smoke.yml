@@ -41,7 +41,7 @@ jobs:
           script: |
             adb shell settings put secure show_ime_with_hard_keyboard 1
             gradle --no-daemon :app:connectedDebugAndroidTest
-            adb pull /sdcard/Android/data/it.jarvis.assistant/files/screenshots screenshots
+            adb pull /sdcard/Download/jarvis-screenshots screenshots
       - uses: actions/upload-artifact@v4
         if: always()
         with:

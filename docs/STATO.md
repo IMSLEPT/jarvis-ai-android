@@ -1,7 +1,7 @@
 # Stato delle funzioni
 
 Legenda: **C** = compila, coperto da test automatici in CI · **I** = implementato, compila, **non provato su dispositivo** · **P** = parziale · **N** = non implementato / non disponibile.
-Data aggiornamento: build 0.1.x (31/10/2026). *Nessuna funzione è stata provata su un Pixel reale: la colonna «I» significa che il codice esiste e compila, non che sia verificato.*
+Data aggiornamento: build 0.1.7 (01/11/2026). *Nessuna funzione è stata provata su un Pixel reale: la colonna «I» significa che il codice esiste e compila, non che sia verificato.*
 
 | Area | Funzione | Stato | Note |
 |---|---|---|---|
@@ -9,7 +9,7 @@ Data aggiornamento: build 0.1.x (31/10/2026). *Nessuna funzione è stata provata
 | Sicurezza | Chiavi API cifrate (Keystore AES-GCM) | I | |
 | Backup | Cifratura/decifratura backup (PBKDF2 + AES-256-GCM), passphrase errata, file non valido | C | `BackupCryptoTest` |
 | Backup | Esporta/importa/automatico via selettore file Android | I | SAF non testato su dispositivo |
-| Voce | Wake word «Hey Jarvis» (sherpa-onnx KWS, open vocabulary) + avvio manuale toccando la sfera | I | Verifica su voci sintetiche (vedi `docs/VALIDAZIONE.md`): ottima con pronuncia inglese, scarsa con voce sintetica italiana → la tua pronuncia va provata; il tocco sulla sfera funziona sempre |
+| Voce | Wake word «Hey Jarvis» (sherpa-onnx KWS, open vocabulary) + avvio manuale dal microfono | I | Verifica su voci sintetiche (vedi `docs/VALIDAZIONE.md`): ottima con pronuncia inglese, scarsa con voce sintetica italiana → la tua pronuncia va provata; l’avvio manuale richiede modelli e permesso microfono |
 | Voce | VAD fine comando, nessun ascolto infinito | I | Timeout 7 s al primo ascolto, finestra di conversazione configurabile |
 | Voce | STT italiano offline (Parakeet TDT 0.6B v3 int8) | I | Nomi file modello cercati dinamicamente; latenza su Pixel da misurare |
 | Voce | TTS italiano offline (Piper, 4 voci) | I | Qualità/naturalezza da giudicare all'ascolto |
@@ -28,8 +28,9 @@ Data aggiornamento: build 0.1.x (31/10/2026). *Nessuna funzione è stata provata
 | Cervello | Provider cloud gratuiti compatibili OpenAI con fallback (Groq/Qwen3.8-27B, Google, OpenRouter, NVIDIA, personalizzato) | I | Limiti gratuiti (es. Groq 8K token/min) rallentano compiti lunghi |
 | Cervello | Modello offline sul telefono (Gemma 4 / LiteRT-LM) | N | Non implementato in questa versione |
 | Memoria | Ricordi + cronologia (Room), cerca/modifica/elimina/azzera/disattiva | I | |
-| UI | Home con sfera animata, chat, STOP, tema chiaro/scuro, tutte le schermate in italiano | I | Non verificata visivamente su dispositivo |
-| Sistema | Servizio in primo piano di tipo microfono, basso consumo (un solo modello KWS da 3,3M parametri; STT/TTS caricati al bisogno) | I | Consumo reale da misurare |
+| UI | Home ridisegnata, nuova icona, chat con IME, STOP, tema chiaro/scuro, schermate in italiano | I | 4 test automatici passati su emulatore Android 15: digitazione/IME, chat lunga, permessi mancanti e navigazione; nessun test su Pixel fisico |
+| Sistema | Servizio in primo piano di tipo microfono, wake lock esplicito, KWS da 3,3M parametri, STT/TTS caricati al bisogno | I | Consumo reale da misurare |
+| Sistema | Assistente Android predefinito e pannello in basso / overlay facoltativo | I | Compila; ruolo, hotword e controllo app da collaudare sul Pixel |
 | Sistema | Avvio automatico dopo riavvio | N | Android non consente di avviare un servizio microfono da boot: apri l'app una volta |
 | Android 17 | Accessibilità con «Protezione avanzata» attiva | N | Bloccata dal sistema; Jarvis non la aggira |
 
@@ -37,4 +38,4 @@ Data aggiornamento: build 0.1.x (31/10/2026). *Nessuna funzione è stata provata
 - Il modello AI è in cloud (piani gratuiti con limiti di richieste/token): compiti lunghi possono attendere o fermarsi.
 - App con schermate protette (banche, DRM) non sono leggibili né catturabili.
 - Il riconoscimento di «Hey Jarvis» e della tua voce non è stato addestrato/validato sull'italiano.
-- Nessun test automatico di interfaccia o su dispositivo è stato eseguito.
+- Quattro test di interfaccia passati su emulatore Android 15. Richiamo vocale, sessione assistente, accessibilità reale, latenza e consumi richiedono ancora collaudo sul Pixel.

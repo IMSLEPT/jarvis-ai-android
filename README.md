@@ -11,7 +11,7 @@ Assistente personale autonomo per Android, pensato per **Google Pixel 9 Pro XL (
 
 Tutti i componenti sono **open source e gratuiti**; nessun abbonamento obbligatorio. Nessuna chiave API è nel codice.
 
-> ⚠️ **Stato onesto**: l'APK compila e i test unitari (sicurezza, cifratura backup) passano in CI, ma **nessuna funzione è ancora stata provata su un telefono reale**. Leggi `docs/STATO.md` per lo stato di ogni funzione e `docs/TEST_PLAN.md` per i test da eseguire.
+> ⚠️ **Stato onesto**: l’APK compila, i test unitari (sicurezza, cifratura backup, risposte scritte) passano in CI e 4 test UI passano su emulatore Android 15, ma **nessuna funzione è ancora stata provata su un telefono reale**. Leggi `docs/STATO.md` per lo stato di ogni funzione e `docs/TEST_PLAN.md` per i test da eseguire.
 
 ## Installazione (Pixel)
 1. Apri la pagina **Releases** del repository dal telefono e scarica `Jarvis-AI-x.y.z.apk` (l'ultima versione).
@@ -31,7 +31,7 @@ Tutti i componenti sono **open source e gratuiti**; nessun abbonamento obbligato
 ## Architettura (moduli logici in un unico modulo Gradle)
 | Pacchetto | Ruolo |
 |---|---|
-| `ui` | Compose: Home con sfera animata, menu e schermate (cronologia, memoria, voce, modelli AI/backup, permessi, app, impostazioni, diagnostica), tema scuro/chiaro |
+| `ui` | Compose: Home con chat e nuova icona, menu e schermate (cronologia, memoria, voce, modelli AI/backup, permessi, app, impostazioni, diagnostica), tema scuro/chiaro |
 | `voice` | Mic (AEC/NS), wake word (sherpa-onnx KWS), VAD Silero, STT Parakeet TDT 0.6B v3 (it), TTS Piper (it), verifica parlante CAM++ |
 | `core` | `JarvisCore` (stati, barge-in, conversazione a finestra limitata, stop immediato), `Settings` |
 | `ai` | `LlmClient` (provider compatibili OpenAI con catena di fallback), `ProviderStore`, `BackupZone` |

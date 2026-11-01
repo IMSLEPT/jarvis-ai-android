@@ -47,10 +47,9 @@ class HomeRegressionTest {
     }
     private fun screenshot(name: String) {
         ui.waitForIdle()
-        val ctx = ui.activity
-        val directory = File(ctx.getExternalFilesDir(null), "screenshots").apply { mkdirs() }
-        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot() ?: return
-        File(directory, "$name.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
-        bitmap.recycle()
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        // Download resta disponibile anche quando Gradle disinstalla l'app al termine dei test.
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand("mkdir -p /sdcard/Download/jarvis-screenshots")).use { it.readBytes() }
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand("screencap -p /sdcard/Download/jarvis-screenshots/$name.png")).use { it.readBytes() }
     }
 }
