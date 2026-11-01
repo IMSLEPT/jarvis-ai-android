@@ -120,7 +120,9 @@ class NativeRegressionTest {
         shell("settings put secure accessibility_enabled 1")
         withTimeout(15_000) { while (!JarvisAccessibilityService.isConnected) delay(100) }
         ctx.startActivity(Intent().setClassName("it.jarvis.assistant.test", "it.jarvis.assistant.TargetChatActivity").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        delay(1000)
+        withTimeout(15_000) {
+            while (g.controller.observe().packageName != "it.jarvis.assistant.test") delay(200)
+        }
         g.controller.observe()
         val result = g.controller.typeText("Ciao, questa è soltanto una bozza di prova.", null, false)
         assertTrue(result, result.startsWith("OK:"))

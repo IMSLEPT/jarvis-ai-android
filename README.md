@@ -9,7 +9,7 @@ Home ridisegnata, icona fornita da Alessandro, compositore chat sopra la tastier
 
 Assistente personale autonomo per Android, pensato per **Google Pixel 9 Pro XL (Android 17)**: ti ascolta con «Hey Jarvis» tramite un rilevatore dedicato integrato, capisce l'italiano, parla con voce italiana naturale e controlla altre app (WhatsApp, Google Foto, Booking, ChatGPT e le tue) leggendo lo schermo e toccando/scrivendo tramite il servizio di accessibilità.
 
-Tutti i componenti sono **open source e gratuiti**; nessun abbonamento obbligatorio. Nessuna chiave API è nel codice. Il modello openWakeWord integrato è concesso per uso non commerciale (CC BY-NC-SA 4.0): vedi LICENSE-openWakeWord.txt.
+Il codice usa componenti open source; i modelli vocali sono gratuiti per l’uso personale. Nessun abbonamento obbligatorio. Nessuna chiave API è nel codice. Il modello openWakeWord integrato è concesso per uso non commerciale (CC BY-NC-SA 4.0): vedi LICENSE-openWakeWord.txt.
 
 > ⚠️ **Stato onesto**: l’APK compila, i test unitari (sicurezza, cifratura backup, risposte scritte) passano in CI e 4 test UI passano su emulatore Android 15, ma **nessuna funzione è ancora stata provata su un telefono reale**. Leggi `docs/STATO.md` per lo stato di ogni funzione e `docs/TEST_PLAN.md` per i test da eseguire.
 
@@ -53,10 +53,10 @@ Libreria nativa: **sherpa-onnx v1.13.8** (Apache-2.0) con ONNX Runtime; sorgenti
 - Il repository è pubblico: **mai committare** chiavi, backup (`jarvis-backup*.json`), profili vocali, modelli.
 
 ## Build
-La build avviene su GitHub Actions (`.github/workflows/build-apk.yml`): JDK 17, Gradle 8.14.3, AGP 8.11.1, Kotlin 2.2.0. Localmente: scarica le `.so` di sherpa-onnx v1.13.8 (arm64-v8a) in `app/src/main/jniLibs/arm64-v8a/` e lancia `gradle :app:assembleRelease`.
+La build avviene su GitHub Actions (`.github/workflows/build-apk.yml`): JDK 17, Gradle 8.14.3, AGP 8.11.1, Kotlin 2.2.0. Localmente: scarica le `.so` di sherpa-onnx v1.13.8 (arm64-v8a) in `app/src/main/jniLibs/arm64-v8a/` poi esegui `bash scripts/fetch-wake-models.sh` e `gradle :app:assembleRelease`.
 
 ## Licenze dei modelli
-Parakeet TDT 0.6B v3 (CC-BY-4.0), Silero VAD (MIT), 3D-Speaker CAM++ (Apache-2.0), KWS zipformer (Apache-2.0), voci Piper (MIT + licenza del dataset di ciascuna voce), Qwen3.8-27B (Apache-2.0, via provider).
+Parakeet TDT 0.6B v3 (CC-BY-4.0), Silero VAD (MIT), 3D-Speaker CAM++ (Apache-2.0), openWakeWord Hey Jarvis (modelli CC BY-NC-SA 4.0, codice Apache-2.0), voci Piper (MIT + licenza del dataset di ciascuna voce), Qwen3.8-27B (Apache-2.0, via provider).
 
 ### Correzioni voce e WhatsApp (1 novembre 2026)
 - Sostituito Zipformer KWS con openWakeWord Hey Jarvis integrato, locale; score e sensibilità in Voce e modelli.

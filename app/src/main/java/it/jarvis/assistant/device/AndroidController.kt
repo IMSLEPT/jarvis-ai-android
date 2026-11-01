@@ -118,7 +118,14 @@ class AndroidController(private val ctx: Context, val launcher: AppLauncher) {
                 ?: fields.firstOrNull { it.isFocused }
                 ?: fields.singleOrNull()
         }
-        var node = select() ?: return@withContext "ERRORE: nessun campo messaggio modificabile trovato. Apri prima la chat del destinatario, poi rileggi lo schermo."
+        var selected: AccessibilityNodeInfo? = null
+        // Aperture di app/chat e animazioni non rendono subito disponibile la nuova finestra.
+        for (attempt in 0 until 15) {
+            selected = select()
+            if (selected != null) break
+            delay(200)
+        }
+        var node = selected ?: return@withContext "ERRORE: nessun campo messaggio modificabile trovato. Apri prima la chat del destinatario, poi rileggi lo schermo."
         if (node.isPassword) return@withContext "RIFIUTATO: non scrivo nei campi password."
         repeat(3) { attempt ->
             node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)

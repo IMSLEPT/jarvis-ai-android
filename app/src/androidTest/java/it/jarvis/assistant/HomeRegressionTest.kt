@@ -18,12 +18,13 @@ class HomeRegressionTest {
     @Before fun reset() { ui.runOnIdle { ui.activity.graph.core.chat.value = emptyList(); ui.activity.graph.core.error.value = null } }
 
     @Test fun composerRemainsVisibleWhileTyping() {
+        ui.waitUntil(15_000) { ui.activity.hasWindowFocus() }
         screenshot("home")
         ui.onNode(hasSetTextAction()).performClick().performTextInput("Messaggio scritto di prova")
         ui.runOnIdle {
             val activity = ui.activity
             val focus = activity.currentFocus ?: error("Campo di input senza focus")
-            activity.getSystemService(android.view.inputmethod.InputMethodManager::class.java).showSoftInput(focus, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+            activity.getSystemService(android.view.inputmethod.InputMethodManager::class.java).apply { restartInput(focus); showSoftInput(focus, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT) }
         }
         ui.waitUntil(10_000) {
             androidx.core.view.ViewCompat.getRootWindowInsets(ui.activity.window.decorView)?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == true

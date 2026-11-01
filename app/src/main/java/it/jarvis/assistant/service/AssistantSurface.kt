@@ -82,10 +82,10 @@ class AssistantSurface(private val ctx: Context) {
         if (dismissed || ctx.graph.core.appVisible.value) return
         val voice = JarvisVoiceInteractionService.instance
         if (voice != null) {
-            if (JarvisSession.active == null) try { voice.showSession(Bundle().apply { putBoolean("from_jarvis", true) }, 0) }
-            catch (e: Exception) { DiagLog.e("Assistente", "Pannello di sistema non disponibile", e) }
-            if (JarvisSession.active != null) return
-            if (!Settings.canDrawOverlays(ctx)) return
+            try {
+                if (JarvisSession.active == null) voice.showSession(Bundle().apply { putBoolean("from_jarvis", true) }, 0)
+                return // showSession è asincrono: non aggiungere anche un overlay mentre si apre.
+            } catch (e: Exception) { DiagLog.e("Assistente", "Pannello di sistema non disponibile", e) }
         }
         if (panel != null || !Settings.canDrawOverlays(ctx)) return
         val p = AssistantPanel(ctx, { dismissed = true; hide(); ctx.graph.core.stopAll() }, { dismissed = true; hide(); openApp(ctx) })
