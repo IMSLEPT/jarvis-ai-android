@@ -49,6 +49,11 @@ class NativeRegressionTest {
     }
     @After fun stop() = runBlocking { JarvisService.stop(ctx); withTimeout(10_000) { while (g.core.micRunning) delay(100) } }
 
+    @Test fun contactsAndItalianInternationalNumbersAreNormalized() {
+        assertEquals("alessandra campisi", it.jarvis.assistant.device.ContactResolver.normalize("Alessàndra Campisi ❤️"))
+        for (number in listOf("3331234567", "+39 333 1234567", "393331234567")) assertEquals("393331234567", it.jarvis.assistant.device.ContactResolver.phone(number))
+    }
+
     @Test fun downloadedItalianVoicesGenerateAndPlayWithoutJniCallback() = runBlocking {
         for (voice in ModelCatalog.voices) {
             install(voice)

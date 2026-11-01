@@ -11,10 +11,12 @@ import java.text.Normalizer
 data class ContactMatch(val name: String, val phone: String)
 /** Solo numeri reali della rubrica concessa dall'utente; mai inferire il numero di un nome. */
 object ContactResolver {
-    fun normalize(s: String): String = Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{M}"), "").trim().replace(Regex("\\s+"), " ")
+    fun normalize(s: String): String = Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{M}"), "").replace(Regex("[^\\p{L}\\p{N}]+"), " ").trim().replace(Regex("\\s+"), " ")
     fun phone(raw: String): String? {
         if (raw.any { it.isLetter() }) return null
-        return PhoneNumberUtils.formatNumberToE164(raw.trim(), "IT")?.removePrefix("+")?.takeIf { it.length in 8..15 }
+        val digits = raw.filter { it.isDigit() }
+        val canonical = if (!raw.trim().startsWith("+") && digits.startsWith("39") && digits.length >= 11) "+$digits" else raw.trim()
+        return PhoneNumberUtils.formatNumberToE164(canonical, "IT")?.removePrefix("+")?.takeIf { it.length in 8..15 }
     }
     fun find(ctx: Context, name: String): List<ContactMatch> {
         if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) return emptyList()
