@@ -28,3 +28,16 @@ Per ogni test annota: data, esito (OK / KO / parziale), note. Scarica il log da 
 | T22 | Blocco | Schermata ferma / app che non risponde | Si ferma entro limiti con spiegazione |
 | T23 | Batteria | 8 ore con ascolto attivo e schermo spento | Annota % consumata |
 | T24 | Android 17 Protezione avanzata | Attivala | Accessibilità bloccata (comportamento atteso del sistema) |
+
+
+## Regressioni interfaccia / servizio (1 novembre 2026)
+- Aprire tutte le schermate, tastiera aperta e chiusa, testo grande e schermo orizzontale. In chat il campo e il testo devono restare visibili; la Home deve scorrere senza schiacciare il compositore.
+- Negare microfono, negare notifiche, revocare il microfono durante l’ascolto. Non deve esserci un arresto dell’app; indicare l’azione per riprendere.
+- Senza modelli, toccare il microfono: errore comprensibile e servizio terminato senza notifica residua.
+- Avviare e fermare l’ascolto rapidamente dieci volte. Durante sintesi, interrompere e inviare un secondo comando; verificare che non ci siano blocchi JNI o doppia voce.
+- Chat con microfono spento: una conferma deve restare in attesa della risposta scritta, senza scadere subito.
+- Con modelli e chiave configurati: attivare Hey Jarvis, aprire un’altra app, pronunciare il richiamo, verificare trascrizione e risposta nel pannello in basso. Chiuderlo e ripetere.
+- Scegliere Jarvis come assistente predefinito, richiamarlo con il gesto assistente, verificare avvio comando e chiusura del pannello.
+- Provare anche il fallback senza ruolo assistente con «Mostra sopra altre app». Durante le azioni il pannello deve scomparire e non deve interferire con i tocchi.
+- Verificare Hey Jarvis a schermo spento e il consumo sul Pixel; non è una funzione convalidata dal solo test di compilazione.
+- Se avviene un crash Java, riaprire Diagnostica: deve comparire solo il tipo di eccezione e i frame dell’app, senza chiavi o testo utente. I crash nativi richiedono logcat.

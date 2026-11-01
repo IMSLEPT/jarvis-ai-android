@@ -27,7 +27,7 @@ import kotlinx.coroutines.launch
 
 /** Contenitore delle dipendenze (iniezione manuale). */
 class AppGraph(app: Application) {
-    val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default + kotlinx.coroutines.CoroutineExceptionHandler { _, e -> it.jarvis.assistant.diag.DiagLog.e("Background", "Operazione non riuscita", e) })
     val settings = Settings(app)
     val secure = SecureKeyStore(app)
     val providers = ProviderStore(settings, secure)
@@ -57,6 +57,7 @@ class JarvisApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        it.jarvis.assistant.diag.CrashReport.install(this)
         graph = AppGraph(this)
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "Jarvis in ascolto", NotificationManager.IMPORTANCE_LOW).apply {

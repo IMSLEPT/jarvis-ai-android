@@ -311,7 +311,7 @@ private fun ModelRow(spec: ModelSpec, st: ModelState) {
         when (st) {
             is ModelState.Installed -> {
                 Text("Installato ✓", color = JColors.Ok)
-                TextButton(onClick = { g.models.remove(spec) }) { Text("Rimuovi") }
+                TextButton(enabled = !g.core.micRunning, onClick = { g.models.remove(spec) }) { Text("Rimuovi") }
             }
             is ModelState.Downloading -> {
                 val p = if (st.total > 0) st.done.toFloat() / st.total else 0f

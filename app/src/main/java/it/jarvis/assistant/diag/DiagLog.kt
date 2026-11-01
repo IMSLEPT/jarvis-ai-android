@@ -15,6 +15,7 @@ object DiagLog {
     private val _lines = MutableStateFlow<List<LogLine>>(emptyList())
     val lines: StateFlow<List<LogLine>> = _lines
 
+    @Synchronized
     private fun add(level: Char, tag: String, msg: String) {
         val l = LogLine(fmt.format(Date()), level, tag, msg.take(400))
         synchronized(this) { _lines.value = (_lines.value + l).takeLast(600) }

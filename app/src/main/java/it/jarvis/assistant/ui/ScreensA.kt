@@ -186,12 +186,33 @@ private fun PermissionsScreen(onBack: () -> Unit) {
         owner.lifecycle.addObserver(obs); onDispose { owner.lifecycle.removeObserver(obs) }
     }
     @Suppress("UNUSED_VARIABLE") val r = refresh
-    val a11y = JarvisAccessibilityService.isConnected
+    val a11y by JarvisAccessibilityService.connected.collectAsState()
     val mic = ctx.hasMic()
     fun open(i: Intent) { try { ctx.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { DiagLog.e("Permessi", "Impossibile aprire impostazioni", e) } }
     val micLauncher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()) { refresh++ }
 
-    ScreenScaffold("Permessi", onBack) {
+    val role = ctx.getSystemService(android.app.role.RoleManager::class.java)
+    val roleLauncher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { refresh++ }
+    val assistant = role.isRoleAvailable(android.app.role.RoleManager.ROLE_ASSISTANT) && role.isRoleHeld(android.app.role.RoleManager.ROLE_ASSISTANT)
+    val overlay = AndroidSettings.canDrawOverlays(ctx)
+    ScreenScaffold("Configura il tuo assistente", onBack) {
+        JCard {
+            Section("ASSISTENTE DI ANDROID")
+            Text(if (assistant) "Jarvis è il tuo assistente predefinito ✓" else "Richiama Jarvis con il gesto assistente", fontWeight = FontWeight.SemiBold)
+            Hint("Seleziona Jarvis come assistente digitale per aprire il pannello in basso con il gesto o il pulsante assistente del telefono. Per «Hey Jarvis», scarica i modelli vocali e attiva l’ascolto dalla Home: rimane una notifica con il pulsante Ferma.")
+            Button(onClick = {
+                try {
+                    if (role.isRoleAvailable(android.app.role.RoleManager.ROLE_ASSISTANT)) roleLauncher.launch(role.createRequestRoleIntent(android.app.role.RoleManager.ROLE_ASSISTANT))
+                    else open(Intent(AndroidSettings.ACTION_VOICE_INPUT_SETTINGS))
+                } catch (e: Exception) { open(Intent(AndroidSettings.ACTION_VOICE_INPUT_SETTINGS)) }
+            }) { Text(if (assistant) "Gestisci assistente" else "Scegli Jarvis come assistente") }
+        }
+        JCard {
+            Section("PANNELLO SOPRA LE ALTRE APP")
+            Text(if (overlay) "Pannello consentito ✓" else "Mostra Jarvis quando dici Hey Jarvis", fontWeight = FontWeight.SemiBold)
+            Hint("Facoltativo se Jarvis è già l’assistente predefinito. Consente il pannello compatto sopra le app mentre ascolta e risponde. Il pannello si nasconde durante le azioni per lasciare libero lo schermo.")
+            OutlinedButton(onClick = { open(Intent(AndroidSettings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${ctx.packageName}"))) }) { Text("Consenti pannello in sovrapposizione") }
+        }
         JCard {
             Text("Microfono: ${if (mic) "concesso ✓" else "non concesso"}", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
             Hint("Serve per ascoltare «Hey Jarvis» e i tuoi comandi. L'audio è elaborato sul telefono; i comandi vocali non vengono inviati a nessun server (solo il testo del compito va al modello AI cloud che scegli).")
@@ -201,12 +222,13 @@ private fun PermissionsScreen(onBack: () -> Unit) {
             Text("Accessibilità: ${if (a11y) "attiva ✓" else "non attiva"}", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
             Hint("Permette a Jarvis di leggere lo schermo e di toccare, scrivere e scorrere nelle altre app, solo quando gli affidi un compito.")
             Button(onClick = { open(Intent(AndroidSettings.ACTION_ACCESSIBILITY_SETTINGS)) }) { Text("Apri impostazioni accessibilità") }
-            Hint("Se l'interruttore è grigio (app installata da APK): apri «Info app» → menu ⋮ in alto a destra → «Consenti impostazioni limitate», poi riprova.")
+            Section("SE ANDROID DICE «ACCESSO NEGATO»")
+            Hint("1. Premi «Apri Info app» qui sotto.\n2. Tocca ⋮ in alto a destra → Consenti impostazioni limitate e conferma con PIN o impronta.\n3. Torna ad Accessibilità → Jarvis AI e attiva il servizio.\nQuesta autorizzazione permette di leggere e interagire con lo schermo: concedila solo alla tua build verificata. L’app non può attivarla da sola.")
             OutlinedButton(onClick = { open(Intent(AndroidSettings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}"))) }) { Text("Apri Info app") }
         }
         JCard {
-            Text("Android 17 · Protezione avanzata", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-            Hint("Se attivi la «Protezione avanzata» di Android, il sistema blocca il servizio di accessibilità alle app che non sono strumenti di accessibilità: Jarvis smetterebbe di poter controllare le altre app. Per usarlo, tienila disattivata. Jarvis non aggira questa protezione.")
+            Text("Restrizioni aggiuntive di Android", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+            Hint("Se un criterio di protezione del dispositivo continua a bloccare l’accessibilità, Jarvis lo segnala e non lo aggira. La chat e l’apertura di app e link restano utilizzabili; leggere o toccare le altre app richiede il servizio attivo.")
         }
         JCard {
             Text("Batteria", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
@@ -313,9 +335,12 @@ private fun DiagScreen(onBack: () -> Unit) {
     ScreenScaffold("Diagnostica", onBack) {
         JCard {
             Section("STATO")
+            it.jarvis.assistant.diag.CrashReport.last(ctx)?.let { Text("Ultimo arresto registrato\n$it", fontSize = 12.sp, color = MaterialTheme.colorScheme.error) }
             val lines = listOf(
                 "Microfono (permesso) ${ok(ctx.hasMic())}",
                 "Accessibilità attiva ${ok(JarvisAccessibilityService.isConnected)}",
+                "Pannello sopra le app ${ok(AndroidSettings.canDrawOverlays(ctx))}",
+                "Assistente predefinito ${ok(ctx.getSystemService(android.app.role.RoleManager::class.java).isRoleHeld(android.app.role.RoleManager.ROLE_ASSISTANT))}",
                 "Ascolto avviato ${ok(g.core.micRunning)}",
                 "Modello «Hey Jarvis» ${ok(g.models.isInstalled(ModelCatalog.kws))}",
                 "Modello VAD ${ok(g.models.isInstalled(ModelCatalog.vad))}",

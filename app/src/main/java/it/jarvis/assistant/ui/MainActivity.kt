@@ -7,6 +7,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.SystemBarStyle
+import android.graphics.Color
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,9 +23,11 @@ import androidx.core.content.ContextCompat
 import it.jarvis.assistant.graph
 
 class MainActivity : ComponentActivity() {
+    override fun onResume() { super.onResume(); graph.core.appVisible.value = true }
+    override fun onPause() { graph.core.appVisible.value = false; super.onPause() }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT), navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT))
         val g = graph
         setContent {
             val tick by g.settings.tick.collectAsState()

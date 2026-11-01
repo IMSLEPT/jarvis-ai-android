@@ -1,5 +1,12 @@
 # Jarvis AI (Android)
 
+### Aggiornamento interfaccia e stabilità — 1 novembre 2026
+
+Home ridisegnata, icona fornita da Alessandro, compositore chat sopra la tastiera, guida permessi aggiornata e assistente Android selezionabile. Il pannello vocale compare in basso nelle altre app scegliendo Jarvis come assistente predefinito, oppure concedendo «Mostra sopra altre app». Il caricamento dei modelli avviene fuori dal thread UI.
+
+«Hey Jarvis» richiede modelli KWS/VAD/STT scaricati, permesso microfono e ascolto avviato esplicitamente dalla Home. Il servizio usa una notifica e un wake lock: il consumo può essere superiore a Gemini e non è equivalente al suo hotword hardware. Dopo un arresto forzato o un riavvio, riattivare dalla Home. Nessun permesso viene concesso automaticamente.
+
+
 Assistente personale autonomo per Android, pensato per **Google Pixel 9 Pro XL (Android 17)**: ti ascolta con «Hey Jarvis», capisce l'italiano, parla con voce italiana naturale e controlla altre app (WhatsApp, Google Foto, Booking, ChatGPT e le tue) leggendo lo schermo e toccando/scrivendo tramite il servizio di accessibilità.
 
 Tutti i componenti sono **open source e gratuiti**; nessun abbonamento obbligatorio. Nessuna chiave API è nel codice.
@@ -11,11 +18,11 @@ Tutti i componenti sono **open source e gratuiti**; nessun abbonamento obbligato
 2. Installa l'APK (consenti «Installa app sconosciute» per il browser/gestore file usato).
 3. Apri Jarvis → **Menu → Permessi**: concedi microfono e notifiche.
 4. **Accessibilità**: Menu → Permessi → «Apri impostazioni accessibilità» → Jarvis AI → attiva. Se l'interruttore è grigio: Info app → ⋮ → **Consenti impostazioni limitate**.
-5. **Android 17**: tieni **disattivata** la «Protezione avanzata», altrimenti il sistema blocca l'accessibilità a Jarvis (non viene aggirata).
+5. Per il pannello nelle altre app: **Menu → Permessi → Scegli Jarvis come assistente**, oppure **Consenti pannello in sovrapposizione**. Eventuali ulteriori restrizioni imposte dal dispositivo vengono rispettate; la chat resta utilizzabile.
 6. **Menu → Voce e modelli** → «Scarica tutti gli essenziali» (circa 600 MB, con Wi-Fi; riprende se interrotto).
 7. **Menu → Modelli AI e chiavi API**: inserisci almeno una chiave gratuita (consigliato Groq, poi Google AI Studio come riserva), premi *Prova*.
 8. **Zona backup chiavi**: premi *Esporta backup*, scegli una passphrase e dove salvare il file: da lì in poi le chiavi si ripristinano in un tap anche dopo una reinstallazione.
-9. Torna alla Home, tocca il microfono e di' «Hey Jarvis».
+9. Torna alla Home: il tasto di accensione in alto abilita l’ascolto di «Hey Jarvis»; il microfono in basso avvia subito un comando. La notifica **Ferma** spegne l’ascolto.
 
 ## Aggiornamenti senza reinserire le chiavi
 - **Aggiornare sopra la versione installata** mantiene chiavi, memoria e impostazioni, *a condizione che la firma dell'APK sia la stessa*. La CI firma con una chiave generata una volta e conservata nella cache di GitHub (rinnovata ogni settimana dal workflow `keep-signing-key`). Per una firma **permanente** crea i secret come spiegato in `scripts/make-keystore.sh`.

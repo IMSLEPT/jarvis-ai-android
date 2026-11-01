@@ -14,6 +14,12 @@ import it.jarvis.assistant.voice.SttEngine
 import it.jarvis.assistant.voice.TtsEngine
 import it.jarvis.assistant.voice.WakeWord
 import it.jarvis.assistant.memory.MemoryRepository
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -54,10 +60,17 @@ class JarvisCore(
     private val memory: MemoryRepository,
 ) : AgentIO {
     private val tag = "Core"
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineExceptionHandler { _, e ->
+        reportError("Operazione interrotta. Controlla Diagnostica e riprova.")
+        DiagLog.e(tag, "Operazione non riuscita", e)
+    })
     lateinit var agent: Agent
 
+    val appVisible = MutableStateFlow(false)
+    val activations = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val state = MutableStateFlow(JState.OFF)
+    fun reportError(message: String) { error.value = message; state.value = JState.ERROR }
+    private val lifecycleLock = Any()
     val chat = MutableStateFlow<List<Msg>>(emptyList())
     val status = MutableStateFlow("")
     val level = MutableStateFlow(0f)
@@ -72,6 +85,7 @@ class JarvisCore(
     @Volatile private var work: Job? = null
     @Volatile private var capture: CaptureRequest? = null
     @Volatile private var pendingAnswer: CompletableDeferred<String>? = null
+    @Volatile private var earlyConfirm: Boolean? = null
     @Volatile private var micOnlyForEnroll = false
 
     val micRunning get() = mic.isRunning
@@ -79,11 +93,13 @@ class JarvisCore(
     // ------------------------------------------------------------ ciclo di vita
 
     /** Avvia microfono + wake word. Richiede permesso RECORD_AUDIO e modelli KWS/VAD installati. */
-    fun startVoice(): Boolean {
+    fun startVoice(): Boolean = synchronized(lifecycleLock) {
         if (mic.isRunning && !micOnlyForEnroll) return true
         error.value = null
         if (!wake.load()) return fail("Modello «Hey Jarvis» non installato: scaricalo in Modelli e voce.")
         if (!vad.load()) return fail("Modello di rilevamento voce non installato: scaricalo in Modelli e voce.")
+        if (!stt.isInstalled) return fail("Scarica il riconoscimento vocale italiano in Voce e modelli.")
+        if (settings.speakerVerify && !speaker.hasProfile()) return fail("Registra il tuo profilo vocale oppure disattiva «Accetta solo la mia voce».")
         micOnlyForEnroll = false
         if (!mic.isRunning && !startMic()) return fail("Impossibile avviare il microfono (permesso concesso?).")
         state.value = JState.WAITING
@@ -101,20 +117,23 @@ class JarvisCore(
                 catch (e: Throwable) { DiagLog.e(tag, "Errore nel ciclo audio", Exception(e)) }
             }
         }
-        val ok = mic.start { f ->
+        val ok = mic.start(onFrame = { f ->
             var s = 0f; for (x in f) s += x * x
             level.value = (sqrt(s / f.size) * 8f).coerceIn(0f, 1f)
             frames.trySend(f)
-        }
+        }, onError = {
+            scope.launch { stopVoice(); reportError("Il microfono è stato interrotto dal sistema. Riapri Jarvis e riattiva l’ascolto.") }
+        })
         if (housekeeping?.isActive != true) housekeeping = scope.launch { housekeepingLoop() }
         return ok
     }
 
-    fun stopVoice() {
+    fun stopVoice() = synchronized(lifecycleLock) {
         stopAll()
         mic.stop()
         consumer?.cancel(); consumer = null
         housekeeping?.cancel(); housekeeping = null
+        while (frames.tryReceive().isSuccess) { /* scarta audio precedente */ }
         wake.release(); vad.release(); speaker.release()
         state.value = JState.OFF
         level.value = 0f
@@ -167,6 +186,8 @@ class JarvisCore(
     fun listenNow() { if (mic.isRunning) onWake() }
 
     private fun onWake() {
+        wake.reset()
+        activations.tryEmit(Unit)
         vibrate()
         tts.stop() // barge-in: interrompe la voce
         val old = work
@@ -176,7 +197,7 @@ class JarvisCore(
         }
     }
 
-    private suspend fun Job.cancelAndJoinSafe() { cancel(); try { join() } catch (_: Exception) {} }
+    private suspend fun Job.cancelAndJoinSafe() { cancel(); join(); currentCoroutineContext().ensureActive() }
 
     /** Registra un enunciato (VAD). null = timeout. */
     private suspend fun capture(timeoutMs: Long): FloatArray? {
@@ -189,7 +210,8 @@ class JarvisCore(
     }
 
     private suspend fun transcribe(seg: FloatArray, verify: Boolean): String? = withContext(Dispatchers.Default) {
-        if (verify && settings.speakerVerify && speaker.hasProfile()) {
+        if (verify && settings.speakerVerify) {
+            if (!speaker.hasProfile()) { say("Manca il tuo profilo vocale. Registralo nelle impostazioni."); return@withContext null }
             val sc = speaker.score(seg)
             if (sc == null || sc < settings.speakerThreshold) {
                 DiagLog.w(tag, "Voce non riconosciuta (score=${sc?.let { "%.2f".format(it) }} soglia=${settings.speakerThreshold})")
@@ -207,7 +229,8 @@ class JarvisCore(
     private suspend fun conversation() {
         try {
             var first = true
-            while (scope.isActive) {
+            while (currentCoroutineContext().isActive) {
+                currentCoroutineContext().ensureActive()
                 state.value = JState.LISTENING
                 status.value = if (first) "Ti ascolto…" else "Ti ascolto ancora per qualche secondo…"
                 val timeout = if (first) 7_000L else settings.followUpSeconds * 1000L
@@ -216,7 +239,7 @@ class JarvisCore(
                 state.value = JState.THINKING
                 val text = transcribe(seg, verify = true) ?: continue
                 handle(text)
-                if (!settings.wakeEnabled) break
+                if (!settings.wakeEnabled || settings.followUpSeconds <= 0) break
             }
         } finally {
             if (state.value != JState.OFF) state.value = if (mic.isRunning) JState.WAITING else JState.OFF
@@ -243,6 +266,9 @@ class JarvisCore(
     fun submitText(text: String) {
         val t = text.trim()
         if (t.isEmpty()) return
+        error.value = null
+        activations.tryEmit(Unit)
+        if (stopWords.matches(t)) { stopAll(); return }
         val pa = pendingAnswer
         if (pa != null && pa.isActive) { addChat("user", t); pa.complete(t); return }
         tts.stop()
@@ -255,7 +281,11 @@ class JarvisCore(
         }
     }
 
-    fun answerConfirm(yes: Boolean) { pendingAnswer?.complete(if (yes) "sì" else "no") }
+    fun answerConfirm(yes: Boolean) {
+        val answer = pendingAnswer
+        if (answer != null) answer.complete(if (yes) "sì" else "no")
+        else if (pendingConfirm.value != null) earlyConfirm = yes
+    }
 
     // ------------------------------------------------------------ AgentIO
 
@@ -280,31 +310,30 @@ class JarvisCore(
         pendingAnswer = typed
         state.value = JState.LISTENING
         status.value = "Aspetto la tua risposta…"
-        val voice = async { if (!mic.isRunning) null else capture(timeoutMs)?.let { transcribe(it, verify = true) } }
         try {
-            select<String?> {
-                typed.onAwait { it }
-                voice.onAwait { it }
+            return@coroutineScope awaitUserAnswer(typed, mic.isRunning, timeoutMs + 20_000) {
+                capture(timeoutMs)?.let { transcribe(it, verify = true) }
             }
         } finally {
             pendingAnswer = null
             capture?.result?.complete(null); capture = null
-            voice.cancel()
             state.value = JState.THINKING
         }
     }
 
     override suspend fun confirm(summary: String): Boolean {
+        earlyConfirm = null
         pendingConfirm.value = summary
         try {
             say("$summary Rispondi sì o no.")
             repeat(2) {
+                earlyConfirm?.let { return it }
                 val a = listenForAnswer(9_000)
                 Safety.parseYesNo(a)?.let { return it }
                 if (a != null) say("Non ho capito: sì o no?")
             }
             return false // nessuna risposta chiara = non confermato
-        } finally { pendingConfirm.value = null }
+        } finally { pendingConfirm.value = null; earlyConfirm = null }
     }
 
     override fun status(text: String) {
@@ -315,10 +344,10 @@ class JarvisCore(
     // ------------------------------------------------------------ registrazione per l'enrollment vocale
 
     suspend fun recordForEnrollment(timeoutMs: Long = 9_000): FloatArray? {
-        if (!vad.load()) return null
+        if (!withContext(Dispatchers.Default) { vad.load() }) return null
         if (!mic.isRunning) {
             micOnlyForEnroll = true
-            if (!startMic()) { micOnlyForEnroll = false; return null }
+            if (!withContext(Dispatchers.Default) { startMic() }) { micOnlyForEnroll = false; return null }
         }
         return capture(timeoutMs)
     }

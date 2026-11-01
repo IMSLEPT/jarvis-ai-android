@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:sessionService="it.jarvis.assistant.service.JarvisSessionService"
+    android:recognitionService="it.jarvis.assistant.service.JarvisRecognitionService"
+    android:settingsActivity="it.jarvis.assistant.ui.MainActivity"
+    android:supportsAssist="true"
+    android:supportsLaunchVoiceAssistFromKeyguard="false" />

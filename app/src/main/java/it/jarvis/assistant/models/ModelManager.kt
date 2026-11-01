@@ -10,6 +10,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.Request
@@ -104,13 +106,14 @@ class ModelManager(private val ctx: Context, private val scope: CoroutineScope) 
     fun isInstalled(s: ModelSpec) = marker(s).exists() && path(s).exists()
     fun isInstalled(id: String) = ModelCatalog.byId(id)?.let(::isInstalled) ?: false
 
-    private fun set(id: String, st: ModelState) { _states.value = _states.value + (id to st) }
+    private fun set(id: String, st: ModelState) { _states.update { it + (id to st) } }
 
     fun install(spec: ModelSpec) {
         if (jobs[spec.id]?.isActive == true) return
         jobs[spec.id] = scope.launch(Dispatchers.IO) {
             try {
                 download(spec)
+                coroutineContext.ensureActive()
                 if (spec.archive) {
                     set(spec.id, ModelState.Extracting)
                     extract(spec)
@@ -148,7 +151,11 @@ class ModelManager(private val ctx: Context, private val scope: CoroutineScope) 
         val rb = Request.Builder().url(spec.url)
         if (have > 0) rb.header("Range", "bytes=$have-")
         httpClient.newBuilder().readTimeout(java.time.Duration.ofSeconds(60)).build().newCall(rb.build()).await().use { r ->
-            if (r.code == 416) { return@withContext } // già completo
+            if (r.code == 416) {
+                val expected = r.header("Content-Range")?.substringAfter("*/", "")?.toLongOrNull()
+                check(expected != null && expected > 0 && part.length() == expected) { "Download parziale non valido: elimina il modello e riprova." }
+                return@withContext
+            }
             check(r.isSuccessful) { "Download fallito: HTTP ${r.code}" }
             val resumed = r.code == 206
             if (!resumed) have = 0L
@@ -160,7 +167,8 @@ class ModelManager(private val ctx: Context, private val scope: CoroutineScope) 
                 var done = have
                 var lastUi = 0L
                 body.byteStream().use { input ->
-                    while (isActive) {
+                    while (true) {
+                        coroutineContext.ensureActive()
                         val n = input.read(buf)
                         if (n < 0) break
                         raf.write(buf, 0, n)
@@ -174,16 +182,18 @@ class ModelManager(private val ctx: Context, private val scope: CoroutineScope) 
         }
     }
 
-    private fun extract(spec: ModelSpec) {
+    private suspend fun extract(spec: ModelSpec) {
         val archive = File(root, spec.localName + ".tar.bz2")
         val target = path(spec)
         target.deleteRecursively()
         val canonicalRoot = root.canonicalPath
         TarArchiveInputStream(BZip2CompressorInputStream(BufferedInputStream(archive.inputStream(), 1 shl 16))).use { tar ->
             while (true) {
+                kotlin.coroutines.coroutineContext.ensureActive()
                 val e = tar.nextEntry ?: break
                 val out = File(root, e.name)
                 if (!out.canonicalPath.startsWith(canonicalRoot + File.separator)) continue // anti path-traversal
+                if (e.isSymbolicLink || e.isLink) continue
                 if (e.isDirectory) { out.mkdirs(); continue }
                 out.parentFile?.mkdirs()
                 FileOutputStream(out).use { tar.copyTo(it, 1 shl 16) }

@@ -17,6 +17,7 @@ import java.io.File
 
 /** Sintesi vocale italiana offline con voci Piper (VITS) tramite sherpa-onnx, riprodotta in streaming. */
 class TtsEngine(private val models: ModelManager, private val settings: Settings) {
+    private val nativeLock = Any()
     private var tts: OfflineTts? = null
     private var loadedVoice: String = ""
     @Volatile private var cancelled = false
@@ -30,7 +31,6 @@ class TtsEngine(private val models: ModelManager, private val settings: Settings
 
     fun available() = currentSpec() != null
 
-    @Synchronized
     private fun ensure(): OfflineTts? {
         val spec = currentSpec() ?: return null
         if (tts != null && loadedVoice == spec.id) return tts
@@ -64,8 +64,12 @@ class TtsEngine(private val models: ModelManager, private val settings: Settings
 
     /** Parla e ritorna a fine riproduzione (o a stop()). */
     suspend fun speak(text: String) = withContext(Dispatchers.IO) {
-        if (!settings.ttsEnabled || text.isBlank()) return@withContext
-        val engine = ensure() ?: run { DiagLog.w("TTS", "Nessuna voce installata: salto la sintesi"); return@withContext }
+        val job = kotlin.coroutines.coroutineContext[kotlinx.coroutines.Job]
+        synchronized(nativeLock) {
+        if (job?.isActive == false) return@synchronized
+        if (!settings.ttsEnabled || text.isBlank()) return@synchronized
+        try {
+        val engine = ensure() ?: run { DiagLog.w("TTS", "Nessuna voce installata: salto la sintesi"); return@synchronized }
         cancelled = false
         val sr = engine.sampleRate()
         val minBuf = AudioTrack.getMinBufferSize(sr, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_FLOAT)
@@ -76,30 +80,32 @@ class TtsEngine(private val models: ModelManager, private val settings: Settings
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
         track = at
-        at.play()
         var frames = 0L
         try {
+            at.play()
             engine.generateWithCallback(clean(text), sid = 0, speed = settings.ttsSpeed) { samples ->
-                if (cancelled) return@generateWithCallback 0
+                if (cancelled || job?.isActive == false) return@generateWithCallback 0
                 var off = 0
-                while (off < samples.size && !cancelled) {
+                while (off < samples.size && !cancelled && job?.isActive != false) {
                     val n = at.write(samples, off, samples.size - off, AudioTrack.WRITE_BLOCKING)
-                    if (n < 0) return@generateWithCallback 0
+                    if (n <= 0) return@generateWithCallback 0
                     off += n
                 }
                 frames += samples.size
-                if (cancelled) 0 else 1
+                if (cancelled || job?.isActive == false) 0 else 1
             }
             // attende lo svuotamento del buffer
             var guard = 0
-            while (!cancelled && at.playbackHeadPosition < frames && guard < 600) { Thread.sleep(25); guard++ }
+            while (!cancelled && job?.isActive != false && at.playbackHeadPosition < frames && guard < 600) { Thread.sleep(25); guard++ }
         } catch (e: Throwable) {
             DiagLog.e("TTS", "Errore sintesi", Exception(e))
         } finally {
             try { at.stop() } catch (_: Exception) {}
-            at.release()
+            try { at.release() } catch (_: Exception) {}
             track = null
             lastUsed = System.currentTimeMillis()
+        }
+        } catch (e: Exception) { DiagLog.e("TTS", "Riproduzione non disponibile", e) }
         }
     }
 
@@ -108,8 +114,7 @@ class TtsEngine(private val models: ModelManager, private val settings: Settings
         try { track?.pause(); track?.flush() } catch (_: Exception) {}
     }
 
-    @Synchronized
-    fun release() {
+    fun release() = synchronized(nativeLock) {
         try { tts?.release() } catch (_: Throwable) {}
         tts = null; loadedVoice = ""
     }

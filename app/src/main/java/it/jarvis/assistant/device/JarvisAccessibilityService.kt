@@ -26,6 +26,7 @@ class JarvisAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         instance = this
+        connected.value = true
         DiagLog.i("A11y", "Servizio di accessibilità connesso")
     }
 
@@ -38,12 +39,12 @@ class JarvisAccessibilityService : AccessibilityService() {
     override fun onInterrupt() {}
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {
-        if (instance === this) instance = null
+        if (instance === this) { instance = null; connected.value = false }
         DiagLog.w("A11y", "Servizio di accessibilità disconnesso")
         return super.onUnbind(intent)
     }
 
-    override fun onDestroy() { if (instance === this) instance = null; super.onDestroy() }
+    override fun onDestroy() { if (instance === this) { instance = null; connected.value = false }; super.onDestroy() }
 
     // ---- azioni ----
 
@@ -72,24 +73,34 @@ class JarvisAccessibilityService : AccessibilityService() {
         try {
             takeScreenshot(Display.DEFAULT_DISPLAY, mainExecutor, object : AccessibilityService.TakeScreenshotCallback {
                 override fun onSuccess(result: AccessibilityService.ScreenshotResult) {
+                    var hw: Bitmap? = null
+                    var bmp: Bitmap? = null
+                    var scaled: Bitmap? = null
                     try {
-                        val hw = Bitmap.wrapHardwareBuffer(result.hardwareBuffer, result.colorSpace)
-                        val bmp = hw?.copy(Bitmap.Config.ARGB_8888, false)
-                        result.hardwareBuffer.close()
-                        if (bmp == null) { cont.resume(null); return }
-                        val scale = maxSide.toFloat() / maxOf(bmp.width, bmp.height)
-                        val scaled = if (scale < 1f) Bitmap.createScaledBitmap(bmp, (bmp.width * scale).toInt(), (bmp.height * scale).toInt(), true) else bmp
+                        if (!cont.isActive) return
+                        hw = Bitmap.wrapHardwareBuffer(result.hardwareBuffer, result.colorSpace)
+                        bmp = hw?.copy(Bitmap.Config.ARGB_8888, false)
+                        val image = bmp ?: run { if (cont.isActive) cont.resume(null); return }
+                        val scale = maxSide.toFloat() / maxOf(image.width, image.height)
+                        val output = if (scale < 1f) Bitmap.createScaledBitmap(image, (image.width * scale).toInt(), (image.height * scale).toInt(), true) else image
+                        scaled = output
                         val out = ByteArrayOutputStream()
-                        scaled.compress(Bitmap.CompressFormat.JPEG, 70, out)
-                        cont.resume(Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP))
-                    } catch (e: Exception) { DiagLog.e("A11y", "Screenshot elaborazione", e); cont.resume(null) }
+                        output.compress(Bitmap.CompressFormat.JPEG, 70, out)
+                        if (cont.isActive) cont.resume(Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP))
+                    } catch (e: Exception) { DiagLog.e("A11y", "Screenshot elaborazione", e); if (cont.isActive) cont.resume(null) }
+                    finally {
+                        result.hardwareBuffer.close()
+                        if (scaled !== bmp) scaled?.recycle()
+                        bmp?.recycle(); hw?.recycle()
+                    }
                 }
-                override fun onFailure(errorCode: Int) { DiagLog.w("A11y", "Screenshot non riuscito (codice $errorCode)"); cont.resume(null) }
+                override fun onFailure(errorCode: Int) { DiagLog.w("A11y", "Screenshot non riuscito (codice $errorCode)"); if (cont.isActive) cont.resume(null) }
             })
-        } catch (e: Exception) { DiagLog.e("A11y", "Screenshot", e); cont.resume(null) }
+        } catch (e: Exception) { DiagLog.e("A11y", "Screenshot", e); if (cont.isActive) cont.resume(null) }
     }
 
     companion object {
+        val connected = kotlinx.coroutines.flow.MutableStateFlow(false)
         @Volatile var instance: JarvisAccessibilityService? = null
         val isConnected get() = instance != null
 

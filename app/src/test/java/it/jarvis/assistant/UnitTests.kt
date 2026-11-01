@@ -11,6 +11,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import kotlinx.coroutines.launch
 
 class SafetyTest {
     @Test fun sensitiveLabels() {
@@ -58,5 +59,24 @@ class BackupCryptoTest {
 
     @Test fun notABackup() {
         try { ApiKeyBackup.decrypt("{\"x\":1}", "qualunque-pass".toCharArray()); fail() } catch (e: BackupException) { /* ok */ }
+    }
+}
+
+
+class UserAnswerTest {
+    @Test fun typedAnswerWithMicrophoneOffDoesNotExpireImmediately() = kotlinx.coroutines.runBlocking {
+        val typed = kotlinx.coroutines.CompletableDeferred<String>()
+        val responder = launch { kotlinx.coroutines.delay(30); typed.complete("sì") }
+        val result = it.jarvis.assistant.core.awaitUserAnswer(typed, false, 100, 2000) { error("Microfono spento") }
+        assertEquals("sì", result)
+        responder.join()
+    }
+    @Test fun voiceAnswerCanWin() = kotlinx.coroutines.runBlocking {
+        val typed = kotlinx.coroutines.CompletableDeferred<String>()
+        assertEquals("no", it.jarvis.assistant.core.awaitUserAnswer(typed, true, 1000) { "no" })
+    }
+    @Test fun missingTypedAnswerTimesOut() = kotlinx.coroutines.runBlocking {
+        val typed = kotlinx.coroutines.CompletableDeferred<String>()
+        assertNull(it.jarvis.assistant.core.awaitUserAnswer(typed, false, 20, 30) { "non usare" })
     }
 }
