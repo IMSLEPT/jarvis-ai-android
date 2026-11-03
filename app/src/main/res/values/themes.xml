@@ -1,5 +1,6 @@
 <resources>
     <style name="Theme.Jarvis" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowSplashScreenBackground">@color/jarvis_bg</item>
         <item name="android:windowBackground">@color/jarvis_bg</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>

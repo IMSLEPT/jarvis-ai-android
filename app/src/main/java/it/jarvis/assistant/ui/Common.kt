@@ -1,6 +1,19 @@
 package it.jarvis.assistant.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
+import it.jarvis.assistant.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -37,8 +50,10 @@ fun ScreenScaffold(title: String, onBack: () -> Unit, content: @Composable Colum
     Column(Modifier.fillMaxSize().systemBarsPadding().imePadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro") }
-            Text(title, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
+            Text(title, modifier = Modifier.weight(1f), fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground)
+            Image(painterResource(R.drawable.jarvis_portrait), null, Modifier.size(42.dp), contentScale = ContentScale.Fit)
         }
+        BrandWave(Modifier.fillMaxWidth().height(16.dp).padding(horizontal = 24.dp))
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -52,10 +67,10 @@ fun ScreenScaffold(title: String, onBack: () -> Unit, content: @Composable Colum
 fun JCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Card(
         modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f)),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
-    ) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content) }
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)),
+    ) { Column(Modifier.background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .65f), MaterialTheme.colorScheme.surface))).padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp), content = content) }
 }
 
 @Composable
@@ -83,5 +98,20 @@ fun SliderRow(label: String, value: Float, range: ClosedFloatingPointRange<Float
             Text(fmt(value), fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
         }
         Slider(value, onChange, valueRange = range)
+    }
+}
+
+/** A quiet ribbon echoing the supplied app icon; no perpetual animation. */
+@Composable
+fun BrandWave(modifier: Modifier = Modifier) {
+    val accent = MaterialTheme.colorScheme.primary
+    val blue = MaterialTheme.colorScheme.secondary
+    Canvas(modifier) {
+        val wave = Path().apply {
+            moveTo(0f, size.height * .48f)
+            cubicTo(size.width * .30f, -size.height * .25f, size.width * .51f, size.height * 1.28f, size.width, size.height * .32f)
+        }
+        drawPath(wave, Brush.horizontalGradient(listOf(blue.copy(alpha = .05f), accent.copy(alpha = .12f), blue.copy(alpha = .02f))), style = Stroke(9.dp.toPx(), cap = StrokeCap.Round))
+        drawPath(wave, Brush.horizontalGradient(listOf(Color.Transparent, accent.copy(alpha = .7f), Color.Transparent)), style = Stroke(1.5.dp.toPx(), cap = StrokeCap.Round))
     }
 }

@@ -24,6 +24,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -79,7 +80,7 @@ fun HomeScreen(onMenu: () -> Unit, go: (String) -> Unit) {
 
     Column(Modifier.fillMaxSize().systemBarsPadding().imePadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Image(painterResource(R.drawable.jarvis_portrait), "Jarvis", Modifier.size(40.dp).clip(RoundedCornerShape(13.dp)))
+            Image(painterResource(R.drawable.jarvis_portrait), "Jarvis", Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)), contentScale = ContentScale.Fit)
             Column(Modifier.weight(1f).padding(start = 12.dp)) {
                 Text("JARVIS", letterSpacing = 3.sp, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 Text(if (on) "Hey Jarvis è attivo" else "Il tuo assistente personale", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
@@ -92,20 +93,26 @@ fun HomeScreen(onMenu: () -> Unit, go: (String) -> Unit) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = .18f))
         LazyColumn(state = listState, modifier = Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Ciao Alessandro.", fontSize = 28.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-1).sp)
-                        Text("Cosa facciamo\noggi?", fontSize = 34.sp, lineHeight = 39.sp, fontWeight = FontWeight.Light, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Box(Modifier.size(94.dp).border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .3f), RoundedCornerShape(30.dp)).padding(5.dp).clip(RoundedCornerShape(25.dp)).clickable { voice(true) }) {
-                        Image(painterResource(R.drawable.jarvis_portrait), "Tocca per parlare", Modifier.fillMaxSize())
+                Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surface,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .20f))) {
+                    Column(Modifier.background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.surface))).padding(18.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Ciao Alessandro.", fontSize = 23.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-.6).sp)
+                                Spacer(Modifier.height(8.dp))
+                                Text("Cosa facciamo\noggi?", fontSize = 29.sp, lineHeight = 34.sp, fontWeight = FontWeight.Light, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Image(painterResource(R.drawable.jarvis_portrait), "Tocca per parlare",
+                                Modifier.size(112.dp).clip(RoundedCornerShape(26.dp)).clickable { voice(true) }, contentScale = ContentScale.Fit)
+                        }
+                        BrandWave(Modifier.fillMaxWidth().height(26.dp))
                     }
                 }
             }
             item {
-                Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = .08f), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .15f))) {
+                Surface(shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = .08f), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .15f))) {
                     Row(Modifier.fillMaxWidth().clickable { voice(true) }.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Icon(Icons.Default.GraphicEq, null, tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Default.GraphicEq, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = .12f), RoundedCornerShape(14.dp)).padding(10.dp))
                         Column(Modifier.weight(1f)) {
                             Text(stateLabel(state), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                             Text(status.ifBlank { if (on) "Di’ Hey Jarvis, anche nelle altre app" else "Tocca il microfono oppure scrivi qui sotto" }, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
@@ -137,7 +144,7 @@ fun HomeScreen(onMenu: () -> Unit, go: (String) -> Unit) {
                 val mine = m.role == "user"
                 Column(Modifier.fillMaxWidth(), horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
                     Text(if (mine) "TU" else "JARVIS", Modifier.padding(horizontal = 4.dp, vertical = 5.dp), fontSize = 10.sp, letterSpacing = 1.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Surface(shape = RoundedCornerShape(20.dp), color = if (mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant) {
+                    Surface(border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = if (mine) .25f else .10f)), shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp, bottomStart = if (mine) 22.dp else 6.dp, bottomEnd = if (mine) 6.dp else 22.dp), color = if (mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant) {
                         androidx.compose.foundation.text.selection.SelectionContainer {
                             Text(m.text, Modifier.padding(15.dp), color = if (mine) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface, fontSize = 15.sp, lineHeight = 23.sp)
                         }
@@ -155,7 +162,7 @@ fun HomeScreen(onMenu: () -> Unit, go: (String) -> Unit) {
                 }
             }
         }
-        Surface(color = MaterialTheme.colorScheme.background, tonalElevation = 2.dp) {
+        Surface(shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), color = MaterialTheme.colorScheme.surface, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .14f))) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(value = text, onValueChange = { text = it }, modifier = Modifier.weight(1f).heightIn(max = 144.dp),
                     placeholder = { Text("Chiedi a Jarvis…", fontSize = 14.sp) }, minLines = 1, maxLines = 4, shape = RoundedCornerShape(25.dp),
@@ -183,9 +190,9 @@ private fun SetupLine(n: String, title: String, sub: String, click: () -> Unit) 
 
 @Composable
 private fun QuickCard(title: String, sub: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier, click: () -> Unit) {
-    Surface(modifier.clickable(onClick = click), shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+    Surface(modifier.clickable(onClick = click), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surface, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .16f))) {
         Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = .10f), RoundedCornerShape(12.dp)).padding(10.dp).size(22.dp))
             Text(title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             Text(sub, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

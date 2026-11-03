@@ -1,3 +1,8 @@
+## 3 novembre 2026 — Identità robot blu e ciano
+- Icona originale del robot e onda adattata su livelli separati: sfondo navy a tutta superficie, soggetto nella zona sicura circolare Android, nessun contorno bianco.
+- Nuova palette navy/ciano/bianco per tema scuro e chiaro, Home, chat, schede, menu e pannello assistente.
+- Header, superfici e forme uniformati; la chat mantiene tastiera, selezione testo e controlli vocali esistenti.
+
 ## 1 novembre 2026 — Rilevatore dedicato, voci e scrittura
 - openWakeWord Hey Jarvis integrato con LiteRT; il vecchio KWS inglese non è più usato.
 - Anteprima Piper senza callback JNI, errori espliciti e pulsante Interrompi.

@@ -113,25 +113,25 @@ private class AssistantPanel(private val ctx: Context, close: () -> Unit, open: 
     private var scope: CoroutineScope? = null
     private val density = ctx.resources.displayMetrics.density
     private fun dp(n: Int) = (n * density).toInt()
-    private val ink = Color.rgb(235, 248, 249)
-    private val teal = Color.rgb(105, 225, 217)
+    private val ink = Color.rgb(241, 247, 255)
+    private val teal = Color.rgb(69, 230, 250)
     val view = LinearLayout(ctx).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(22), dp(16), dp(22), dp(28))
-        background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(Color.rgb(20, 43, 52), Color.rgb(8, 17, 25))).apply {
+        background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(Color.rgb(11, 45, 89), Color.rgb(3, 16, 48))).apply {
             cornerRadii = floatArrayOf(dp(30).toFloat(),dp(30).toFloat(),dp(30).toFloat(),dp(30).toFloat(),0f,0f,0f,0f)
-            setStroke(dp(1), Color.rgb(51, 84, 91))
+            setStroke(dp(1), Color.rgb(41, 100, 147))
         }
         elevation = dp(12).toFloat()
     }
     private fun label(size: Float, color: Int = ink) = TextView(ctx).apply { textSize = size; setTextColor(color); setPadding(0, dp(4), 0, dp(4)) }
     private val title = label(18f, teal)
     private val body = label(15f)
-    private val transcript = label(12f, Color.rgb(157, 182, 191))
+    private val transcript = label(12f, Color.rgb(173, 194, 221))
     private val confirmations = LinearLayout(ctx)
     init {
         val head = LinearLayout(ctx).apply { gravity = Gravity.CENTER_VERTICAL }
-        head.addView(ImageView(ctx).apply { setImageResource(R.drawable.jarvis_portrait) }, LinearLayout.LayoutParams(dp(38),dp(38)).apply { marginEnd = dp(12) })
+        head.addView(ImageView(ctx).apply { setImageResource(R.drawable.jarvis_portrait); scaleType = ImageView.ScaleType.FIT_CENTER }, LinearLayout.LayoutParams(dp(38),dp(38)).apply { marginEnd = dp(12) })
         head.addView(title, LinearLayout.LayoutParams(0,-2,1f))
         head.addView(Button(ctx).apply { text = "Chat"; contentDescription = "Apri chat Jarvis"; setOnClickListener { open() } }, LinearLayout.LayoutParams(dp(76), dp(48)))
         head.addView(Button(ctx).apply { text = "×"; contentDescription = "Chiudi assistente e interrompi"; setOnClickListener { close() } }, LinearLayout.LayoutParams(dp(52), dp(48)))
@@ -142,6 +142,12 @@ private class AssistantPanel(private val ctx: Context, close: () -> Unit, open: 
         confirmations.addView(Button(ctx).apply { text = "Conferma"; setOnClickListener { g.core.answerConfirm(true) } })
         confirmations.addView(Button(ctx).apply { text = "Annulla"; setOnClickListener { g.core.answerConfirm(false) } })
         view.addView(confirmations)
+        for (button in listOf(head.getChildAt(2), head.getChildAt(3), confirmations.getChildAt(0), confirmations.getChildAt(1))) {
+            (button as Button).apply {
+                setTextColor(teal)
+                backgroundTintList = android.content.res.ColorStateList.valueOf(Color.rgb(16, 42, 80))
+            }
+        }
     }
     fun bind() {
         unbind()
